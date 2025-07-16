@@ -1250,36 +1250,20 @@ static errcode_t fix_sb_journal_backup(ext2_filsys fs)
 	return 0;
 }
 
+static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned int new_inodes_per_group) {
 
-/*
- * This routine marks and unmarks reserved blocks in the new block
- * bitmap.  It also determines which blocks need to be moved and
- * places this information into the move_blocks bitmap.
- */
-static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned int new_inodes_per_group)
-{
-	unsigned int	j;
-	int		has_super;
-	dgrp_t		i, max_groups, g;
-	blk64_t		blk, group_blk;
-	blk64_t		old_blocks, new_blocks, group_end, cluster_freed;
-	blk64_t		new_size;
-	unsigned int	meta_bg, meta_bg_size;
+
+	blk64_t		itable_start;
 	errcode_t	retval;
 	ext2_filsys 	fs;
-	ext2fs_block_bitmap	meta_bmap, new_meta_bmap = NULL;
-	int		flex_bg;
-	
-	
 	ext2_ino_t ino_num = 0;
 	dgrp_t group = 0; 
 	unsigned int itable, total_inodes_free;
 	unsigned int *dir_count, *free_inode_count, *need_block_mover;
 	struct ext2_inode 	*inode = NULL;
-	int inode_size = 0;
+	int inode_size = 0, len;
 	int retry_alloc_itables = 0;
 	char * inode_bitmap;
-	blk64_t itable_start;
 	
 	inode_size = EXT2_INODE_SIZE(rfs->new_fs->super);
 	inode = malloc(inode_size);
@@ -1288,13 +1272,9 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
 		goto errout;
 	}
 
-
-
-
 	fs = rfs->new_fs;
 
 
-	new_size = ext2fs_blocks_count(fs->super);
 	rfs->new_fs->super->s_inodes_per_group = new_inodes_per_group;
         rfs->new_fs->inode_blocks_per_group = ext2fs_div_ceil(rfs->new_fs->super->s_inodes_per_group * rfs->new_fs->super->s_inode_size, rfs->new_fs->blocksize);
         rfs->new_fs->group_desc_count = rfs->old_fs->group_desc_count;
@@ -1318,29 +1298,6 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
         printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
         printf("EXT2_FIRST_INODE(new_fs->super): %u\n", EXT2_FIRST_INODE(rfs->new_fs->super));
         printf("new_fs->super->s_log_groups_per_flex: %u\n", rfs->new_fs->super->s_log_groups_per_flex);
-        
-        
-        //check itables are contiguous
-       /* if (ext2fs_has_feature_flex_bg(rfs->new_fs->super)) {
-             printf("has feature flex_bg\n");
-             for (g = 1; g < fs->group_desc_count; g++) {
-                  if (g % (1U << fs->super->s_log_groups_per_flex)) {
-                        if (ext2fs_inode_table_loc(fs, g-1)+rfs->old_fs->inode_blocks_per_group != ext2fs_inode_table_loc(fs, g)) {
-                                    printf("itables are not contiguous for groups: %u - %u, blocks %llu - %llu\n", g-1, g,
-                                                              ext2fs_inode_table_loc(fs, g-1)+rfs->old_fs->inode_blocks_per_group,
-                                                              ext2fs_inode_table_loc(fs, g));
-                        } else {
-                                    printf("itables are contiguous for groups: %u - %u, blocks %llu - %llu\n", g-1, g,
-                                                              ext2fs_inode_table_loc(fs, g-1)+rfs->old_fs->inode_blocks_per_group,
-                                                              ext2fs_inode_table_loc(fs, g));
-                        }
-                  }
-              }
-        } else {
-            printf("doesn't have feature flex_bg\n");
-        }*/
-
-        fs = rfs->new_fs;
 
 	need_block_mover = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
         if (need_block_mover == NULL) {
@@ -1349,40 +1306,38 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
         }
 alloc_itables:
 
-	for (g = 0; g < fs->group_desc_count; g++) {
+	for (group = 0; group < fs->group_desc_count; group++) {
 
 		if (retry_alloc_itables == 0 ||
-		    (retry_alloc_itables == 1 && need_block_mover[g])) {
-		        need_block_mover[g] = 0;
-			ext2fs_inode_table_loc_set(fs, g, 0);
+		    (retry_alloc_itables == 1 && need_block_mover[group])) {
+		        need_block_mover[group] = 0;
+			ext2fs_inode_table_loc_set(fs, group, 0);
 			
-			retval = ext2fs_allocate_group_table(fs, g, rfs->old_fs->block_map);
+			retval = ext2fs_allocate_group_table(fs, group, rfs->old_fs->block_map);
 			if (retval) {
-			        printf("unsuccessful ext2fs_allocate_group_table for group %u with retval %li%s\n", g, retval, retry_alloc_itables?"":" - will retry later");
-			        need_block_mover[g]++;
+			        printf("unsuccessful ext2fs_allocate_group_table for group %u with retval %li%s\n", group, retval, retry_alloc_itables?"":" - will retry later");
+			        need_block_mover[group]++;
 
 			} else {
-			      blk64_t start = ext2fs_inode_table_loc(fs,g);
-			      int len = fs->inode_blocks_per_group;
-			       ext2fs_mark_block_bitmap_range2(fs->block_map, start, len);
-			       retval = ext2fs_zero_blocks2(fs, start, len, &start, &len);
+			      itable_start = ext2fs_inode_table_loc(fs,group);
+			      len = fs->inode_blocks_per_group;
+			      ext2fs_mark_block_bitmap_range2(fs->block_map, itable_start, len);
+			      retval = ext2fs_zero_blocks2(fs, itable_start, len, &itable_start, &len);
                               if (retval) {
                                       fprintf(stderr, _("\nCould not write %d "
                                                 "blocks in inode table starting at %llu: %s\n"),
-                                              len, (unsigned long long) start,
-                                              error_message(retval));
+                                              len, (unsigned long long) itable_start, error_message(retval));
                                       exit(1);
                               }
-			      printf("successful ext2fs_allocate_group_table for group %u with retval %li in block %llu\n",
-				          g, retval, start);
+			      printf("successful ext2fs_allocate_group_table for group %u with retval %li in block %llu\n", group, retval, itable_start);
 			}
 		}
 	}
 	
 	retval = 0;	
-	for (g=0; g < fs->group_desc_count; g++) {
-	    fprintf(stdout, " group %u need block_mover %u\n", g, need_block_mover[g]);
-	    retval += need_block_mover[g];
+	for (group=0; group < fs->group_desc_count; group++) {
+	    printf(" group %u need block_mover %u\n", group, need_block_mover[group]);
+	    retval += need_block_mover[group];
 	}
 	if (retval) {
 	      if (retry_alloc_itables) {
@@ -1446,7 +1401,7 @@ alloc_itables:
 	/*the first inode after the new end...does it belong to the last group treated?
 	if so, we need to finish fixing the inode and dir info for that group*/
         if (group == (ino_num - 1) / rfs->new_fs->super->s_inodes_per_group) {
-            printf("completing for last group with used inodes. group: %u, ino_num: %u, sumando: %u\n",
+            printf("completing for last group with used inodes. group: %u, ino_num: %u, adding: %u\n",
                     group, ino_num, rfs->new_fs->super->s_inodes_per_group - (ino_num - 1) % rfs->new_fs->super->s_inodes_per_group);
             free_inode_count[group]+=rfs->new_fs->super->s_inodes_per_group - (ino_num - 1) % rfs->new_fs->super->s_inodes_per_group;
             total_inodes_free+=rfs->new_fs->super->s_inodes_per_group - (ino_num - 1) % rfs->new_fs->super->s_inodes_per_group;
@@ -1488,29 +1443,20 @@ alloc_itables:
 	io_channel_flush(rfs->new_fs->io);
 
 errout:
-	if (new_meta_bmap)
-		ext2fs_free_block_bitmap(new_meta_bmap);
-	if (meta_bmap)
-		ext2fs_free_block_bitmap(meta_bmap);
 
 	return retval;
 }
 
 
-/*
- * This routine marks and unmarks reserved blocks in the new block
- * bitmap.  It also determines which blocks need to be moved and
- * places this information into the move_blocks bitmap.
- */
-static errcode_t make_room_for_new_itables(ext2_resize_t rfs, unsigned int *need_block_mover)
-{
+
+static errcode_t make_room_for_new_itables(ext2_resize_t rfs, unsigned int *need_block_mover) {
 	unsigned int	j;
-	int             flexbg_size = 0;
-	dgrp_t		i, g;
+	int             flexbg_size = 0, retried_from_beginning = 0;
+	dgrp_t		g;
 	blk64_t		blk, blk2, first_blk, last_blk;
 	errcode_t	retval;
 	ext2_filsys 	fs;
-	ext2fs_block_bitmap	meta_bmap, new_meta_bmap = NULL;
+	ext2fs_block_bitmap	meta_bmap;
 	
 	fs = rfs->old_fs;
 		
@@ -1534,11 +1480,11 @@ static errcode_t make_room_for_new_itables(ext2_resize_t rfs, unsigned int *need
 	if (retval)
 		return retval;
 
-	for (i = 0; i < fs->group_desc_count; i++) {
-		blk = ext2fs_inode_table_loc(rfs->new_fs, i);
+	for (g = 0; g < fs->group_desc_count; g++) {
+		blk = ext2fs_inode_table_loc(rfs->new_fs, g);
 		if (blk) {
 			ext2fs_mark_block_bitmap_range2(meta_bmap, blk,	rfs->new_fs->inode_blocks_per_group);
-			printf("mark in meta_bmap for group %u the inode blocks %llu to %llu\n", i, blk, blk+rfs->new_fs->inode_blocks_per_group);
+			printf("mark in meta_bmap for group %u the inode blocks %llu to %llu\n", g, blk, blk+rfs->new_fs->inode_blocks_per_group);
 		}
 	}
 	
@@ -1550,39 +1496,38 @@ static errcode_t make_room_for_new_itables(ext2_resize_t rfs, unsigned int *need
 	            if (!(g % (1U << fs->super->s_log_groups_per_flex))) {
 	                first_blk = ext2fs_group_first_block2(fs, g & ~(flexbg_size - 1));
 	                last_blk = (g|(flexbg_size - 1)>=fs->group_desc_count-1) ?
-	                             ext2fs_blocks_count(rfs->old_fs->super) :
+	                             ext2fs_blocks_count(rfs->old_fs->super)-1 :
 	                             ext2fs_group_first_block2(fs, (g|(flexbg_size - 1))+1)-1;
+	                retried_from_beginning = 0;
 	            }
 	    }
 	    if (need_block_mover[g] == 0) {
-			printf(" --->no need to make room for a new itable for group%u\n", g);
+			printf(" --->no need to make room for a new itable for group %u\n", g);
 
 	   } else {
 	        if (!ext2fs_has_feature_flex_bg(fs->super)) {
 	            first_blk = ext2fs_group_first_block2(fs, g);
 	            last_blk = (g == fs->group_desc_count-1) ?
-	                        ext2fs_blocks_count(rfs->old_fs->super) :
+	                        ext2fs_blocks_count(rfs->old_fs->super)-1 :
 	                        ext2fs_group_first_block2(fs, g+1)-1;
 	        }
-	        
+search_for_space:	        
 	        printf("making room in group %u, searching in blocks %llu - %llu\n", g, first_blk, last_blk);
 	        for (blk = first_blk; blk <= last_blk; blk++) {
 
 	            if (ext2fs_has_group_desc_csum(fs) &&
 				    ext2fs_bg_flags_test(rfs->old_fs, ext2fs_group_of_blk2(rfs->old_fs, blk), EXT2_BG_BLOCK_UNINIT)) {
-			/*
-			 * The block bitmap is uninitialized, so skip
-			 * to the next block group.
-			 */
-			 printf("the EXT2_BG_BLOCK_UNINIT shall have been removed for group %u\n", g);
+			/* The block bitmap is uninitialized, so skip to the next block group.
+			 * This shall not happen, as we called fix_uninit_block_bitmaps() at the beginning */
+			printf("the EXT2_BG_BLOCK_UNINIT shall have been removed for group %u\n", g);
 			blk=ext2fs_group_first_block2(fs, ext2fs_group_of_blk2(fs, blk)+1)-1;
 			continue;
 		    }
 		    
 		    for (blk2 = blk, j = 0;
-		         j < rfs->new_fs->inode_blocks_per_group;
+		         j < rfs->new_fs->inode_blocks_per_group && blk2 <= last_blk;
 		          blk2++, j++) {
-		            if (ext2fs_test_block_bitmap2(meta_bmap, blk2)) {
+		            if (ext2fs_test_block_bitmap2(meta_bmap, blk2) || ext2fs_test_block_bitmap2(rfs->reserve_blocks, blk2)) {
 		                blk = blk2;
 		                break;
 		            }
@@ -1594,10 +1539,18 @@ static errcode_t make_room_for_new_itables(ext2_resize_t rfs, unsigned int *need
 			first_blk = blk2;
 			break;
 		    }
-	        
+		    if (blk2 > last_blk) {
+		      blk = blk2; //will break the loop and enter the next if about failed allocation
+		    }     
 	        }
 	        if (blk > last_blk) {
-	            printf("unable to locate a suitable area to make room\n");
+	        /*ext2fs_allocate_group_table() -> flexbg_offset() will ultimately search from 0 up to the last block of the flex_bg group, but not afterwards*/
+	            if (!retried_from_beginning && ext2fs_has_feature_flex_bg(fs->super)) {
+	                retried_from_beginning = 1;
+	                first_blk = fs->super->s_first_data_block;
+	                goto search_for_space;
+	            }
+	            printf("unable to locate a suitable area to make room while treating group %u\n", g);
 	            retval = EXT2_ET_BLOCK_ALLOC_FAIL;
 	            goto errout;
 	        }
@@ -1609,8 +1562,9 @@ static errcode_t make_room_for_new_itables(ext2_resize_t rfs, unsigned int *need
         printf("block_mover returned with status %li\n", retval);
         goto errout;
       }
-      //	fs->get_alloc_block = resize2fs_get_alloc_block_stats_update;
-	rfs->old_fs->get_alloc_block = resize2fs_get_alloc_block_stats_update; /*needed to avoid bitmap inconsistencies in fsck for unoptimized/expanded? extent trees*/
+
+      /*needed to avoid bitmap inconsistencies in fsck for unoptimized/expanded? extent trees*/
+      rfs->old_fs->get_alloc_block = resize2fs_get_alloc_block_stats_update;
 
       retval = inode_scan_and_fix(rfs);
       if (retval) {
@@ -1618,12 +1572,11 @@ static errcode_t make_room_for_new_itables(ext2_resize_t rfs, unsigned int *need
         goto errout;
       }
       
-      errout:
-	if (new_meta_bmap)
-		ext2fs_free_block_bitmap(new_meta_bmap);
+errout:
 	if (meta_bmap)
 		ext2fs_free_block_bitmap(meta_bmap);
 
 	return retval;
 
 }
+
