@@ -441,6 +441,7 @@ static errcode_t migrate_ea_block(ext2_resize_t rfs, ext2_ino_t ino,
 		return 0;
 
 	/* Set the new ACL block */
+	printf("migrate_ea_block, inode %u, old_block %llu, new_block %llu\n", ino,ext2fs_file_acl_block(rfs->old_fs, inode), new_block);
 	ext2fs_file_acl_block_set(rfs->old_fs, inode, new_block);
 
 	/* Update checksum */
@@ -582,6 +583,7 @@ static errcode_t fix_ea_inode_refs(ext2_resize_t rfs, struct ext2_inode *inode,
 
 		blk = ext2fs_file_acl_block(fs, inode);
 		if (blk && !BLK_IN_CACHE(blk, blk_cache)) {
+			 printf("fix_ea_inode_refs, inode %u, block %llu\n", ino, blk);
 			retval = ext2fs_read_ext_attr3(fs, blk, block_buf, ino);
 			if (retval)
 				goto out;
@@ -899,18 +901,21 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 		retval = ENOMEM;
 		goto errout;
 	}
+	
+	
 	/*
 	 * First, copy all of the inodes that need to be moved
 	 * elsewhere in the inode table
 	 */
-
-	 
 	while (1) {
 		retval = ext2fs_get_next_inode_full(scan, &ino, inode, inode_size);
 		printf("Relocating inodes beyond the new inode limit: read inode: %u, links_count: %u\n", ino, inode->i_links_count);
 		if (retval) goto errout;
 		if (!ino)
 			break;
+			
+		if (inode->i_flags & EXT4_EA_INODE_FL)
+		    printf("EA inode: %u\n", ino);
 
 		if (inode->i_links_count == 0 && ino != EXT2_RESIZE_INO)
 			continue; /* inode not in use */
@@ -926,15 +931,9 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 		new_inode = ino;
 
 		if (ino <= start_to_move){
-		        
-			goto remap_blocks; /* Don't need to move inode. */
-			}
+			goto remap_blocks;
+		}
 
-		/*
-		 * Find a new inode.  Now that extents and directory blocks
-		 * are tied to the inode number through the checksum, we must
-		 * set up the new inode before we start rewriting blocks.
-		 */
 		 /*
 		 The ext2fs_new_inode() searches for the lowest inode that is available.
 		 If that behavior changes, we may need to rewrite this part.
@@ -1031,13 +1030,13 @@ remap_blocks:
 	}
 
 
-	/*if (update_ea_inode_refs &&
+	if (update_ea_inode_refs &&
 	    ext2fs_has_feature_ea_inode(rfs->new_fs->super)) {
 		retval = fix_ea_inode_refs(rfs, inode, block_buf,
 					   start_to_move);
 		if (retval)
 			goto errout;
-	}*/
+	}
 	
 	printf("calling inode_ref_fix()\n");
 	retval = inode_ref_fix(rfs);
@@ -1095,21 +1094,20 @@ remap_blocks:
 	
 	        retval = ext2fs_read_inode_full(rfs->old_fs, i, inode, inode_size);
 	        group = (i - 1) / rfs->new_fs->super->s_inodes_per_group;
-	        printf("Moving inodes to the new itable: read inode: %u, links_count: %u, group: %u, retval: %li\n", i, inode->i_links_count, group, retval);
-	        if (retval) goto errout;
+	        printf("Moving inodes to the new itable: read inode: %u, links_count: %u, group: %u, LINUX_S_ISDIR(inode->i_mode): %i, retval: %li\n",
+	                  i, inode->i_links_count, group, LINUX_S_ISDIR(inode->i_mode), retval);
+	        if (retval)
+	            goto errout;
 	        
-
-	        if (LINUX_S_ISDIR(inode->i_mode))
-	                  dir_count[group]++;
-	        
+        
 	        if (inode->i_links_count == 0 && i != EXT2_RESIZE_INO) {
 	                free_inode_count[group]++;
-	                total_inodes_free++;
-			//continue; /* inode not in use */    
+	                total_inodes_free++;  
 		} else {
+		      if (LINUX_S_ISDIR(inode->i_mode))
+	                  dir_count[group]++;
 
 		      ext2fs_inode_alloc_stats2(rfs->old_fs, i, -1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
-		
 		      ext2fs_inode_alloc_stats2(rfs->new_fs, i, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
 	        }
 	        //if inode not in use, write zeros to the itable anyway, as it may contain the previous inode

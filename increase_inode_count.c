@@ -704,7 +704,9 @@ static errcode_t migrate_ea_block(ext2_resize_t rfs, ext2_ino_t ino,
 		return 0;
 
 	/* Set the new ACL block */
+	printf("migrate_ea_block, inode %u, old_block %llu, new_block %llu\n", ino,ext2fs_file_acl_block(rfs->old_fs, inode), new_block);
 	ext2fs_file_acl_block_set(rfs->old_fs, inode, new_block);
+
 
 	/* Update checksum */
 	if (ext2fs_has_feature_metadata_csum(rfs->new_fs->super)) {
@@ -845,6 +847,7 @@ static errcode_t fix_ea_inode_refs(ext2_resize_t rfs, struct ext2_inode *inode,
 
 		blk = ext2fs_file_acl_block(fs, inode);
 		if (blk && !BLK_IN_CACHE(blk, blk_cache)) {
+		  printf("fix_ea_inode_refs, inode %u, block %llu\n", ino, blk);
 			retval = ext2fs_read_ext_attr3(fs, blk, block_buf, ino);
 			if (retval)
 				goto out;
@@ -1371,17 +1374,16 @@ alloc_itables:
 	        retval = ext2fs_read_inode_full(rfs->old_fs, ino_num, inode, inode_size);
 	        group = (ino_num - 1) / rfs->new_fs->super->s_inodes_per_group;
 	        printf("Moving inodes to the new itable: read inode: %u, links_count: %u, group: %u, retval: %li\n", ino_num, inode->i_links_count, group, retval);
-	        if (retval) goto errout;
-	        
+	        if (retval)
+	            goto errout;
 
-	        if (LINUX_S_ISDIR(inode->i_mode))
-	                  dir_count[group]++;
-	        
 	        if (inode->i_links_count == 0 && ino_num >= EXT2_FIRST_INODE(rfs->new_fs->super)) {
 	                free_inode_count[group]++;
 	                total_inodes_free++;
 
 		} else {
+			if (LINUX_S_ISDIR(inode->i_mode))
+	                    dir_count[group]++;
 		        ext2fs_inode_alloc_stats2(rfs->old_fs, ino_num, -1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);  
 		        ext2fs_inode_alloc_stats2(rfs->new_fs, ino_num, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
 	        }

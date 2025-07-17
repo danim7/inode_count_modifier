@@ -299,9 +299,12 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
               }
   printf("\n");
 
-  new_inodes_per_group = EXT2_BLOCKS_PER_GROUP(fs->super)*blocksize/inode_ratio;
+  //new_inodes_per_group = EXT2_BLOCKS_PER_GROUP(fs->super)*blocksize/inode_ratio;
+  new_inodes_per_group = ext2fs_div64_ceil(
+                                          ext2fs_div64_ceil(ext2fs_blocks_count(fs->super)*blocksize, inode_ratio),
+                                          fs->group_desc_count);
 
-		  double itables_per_group_d = ((double)EXT2_INODE_SIZE(fs->super)*new_inodes_per_group)/blocksize;
+  double itables_per_group_d = ((double)EXT2_INODE_SIZE(fs->super)*new_inodes_per_group)/blocksize;
 
   printf("New inode tables per group (based on inode ratio, before rounding): %f\n", itables_per_group_d);
 		
