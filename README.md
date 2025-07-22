@@ -42,9 +42,10 @@ This will create filesystem with the following characteristics:
 
 Prerequisites: other than standard development packages (gcc, make, etc..), the `libext2fs-dev` package is required to compile it.   
 
-`./configure`  
-`make`  
-
+<pre>
+./configure
+make
+</pre>
 
 # Usage
 
@@ -67,20 +68,25 @@ Where:
 ## Some other useful commands:
 - Get the number of free and used inodes:  
 
-` >> df -i`  
-`Filesystem       Inodes  IUsed    IFree IUse% Mounted on`  
-`/dev/nvme1n1p5 18911088 660776 18250312    4% /`  
+
+<pre>
+ >> df -i
+ Filesystem       Inodes  IUsed    IFree IUse% Mounted on
+ /dev/nvme1n1p5 18911088 660776 18250312    4% /
+</pre>
 
 - Calculate some inode metrics for a given ext4 filesystem:  
 
-` >> tune2fs -l /dev/sda1 | grep -E "Block|Inode"`  
-`Inode count:              655360`  
-`Block count:              2621440`  
-`Block size:               4096`  
-`Blocks per group:         32768`  
-`Inodes per group:         8192`  
-`Inode blocks per group:   512`  
-`Inode size:	          256`  
+<pre>
+ >> tune2fs -l /dev/sda1 | grep -E "Block|Inode"
+Inode count:              655360
+Block count:              2621440
+Block size:               4096
+Blocks per group:         32768
+Inodes per group:         8192
+Inode blocks per group:   512
+Inode size:	          256
+</pre>
 
     - The current inode ratio is: [Block count] * [Block size] / [Inode count] = 16384 bytes-per-inode  
     - The inode tables take [Inode count] * [Inode size] = 167772160 bytes = 160 MiB  
