@@ -47,8 +47,13 @@ e2fsck -vf $image_file  || { echo 'test 7 failed' ; exit 1; }
 
 
 sudo mount -o loop $image_file mounted/
-cd mounted
 rhash --skip-ok -c SHA1SUM
-cd /tmp
+if [[ $? -eq 0 ]]
+then 
+ echo "rhash test ok"
+else
+ echo "rhash test NOT ok"
+ exit -2
+fi
 sudo umount /tmp/mounted
 

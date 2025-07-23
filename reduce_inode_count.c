@@ -628,14 +628,14 @@ remap_blocks:
 	            goto errout;
 	        
         
-	        if (inode->i_links_count == 0 && i != EXT2_RESIZE_INO) {
+	        if (inode->i_links_count == 0 && i >= EXT2_FIRST_INODE(rfs->new_fs->super)) {
 	                free_inode_count[group]++;
 	                total_inodes_free++;  
 		} else {
 		      if (LINUX_S_ISDIR(inode->i_mode))
 	                  dir_count[group]++;
 
-		     // ext2fs_inode_alloc_stats2(rfs->old_fs, i, -1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
+		      //ext2fs_inode_alloc_stats2(rfs->old_fs, i, -1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
 		      ext2fs_inode_alloc_stats2(rfs->new_fs, i, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
 	        }
 	        //if inode not in use, write zeros to the itable anyway, as it may contain the previous inode

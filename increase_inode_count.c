@@ -815,7 +815,7 @@ alloc_itables:
 		} else {
 			if (LINUX_S_ISDIR(inode->i_mode))
 	                    dir_count[group]++;
-		     //   ext2fs_inode_alloc_stats2(rfs->old_fs, ino_num, -1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);  
+		        //ext2fs_inode_alloc_stats2(rfs->old_fs, ino_num, -1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);  
 		        ext2fs_inode_alloc_stats2(rfs->new_fs, ino_num, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
 	        }
 	        retval = ext2fs_write_inode_full(rfs->new_fs, ino_num, inode, inode_size);
@@ -843,7 +843,7 @@ alloc_itables:
             total_inodes_free+=free_inode_count[group]=rfs->new_fs->super->s_inodes_per_group;
         
 	retval = ext2fs_resize_inode_bitmap2(rfs->new_fs->super->s_inodes_count, rfs->new_fs->super->s_inodes_count, rfs->new_fs->inode_map);
-	printf("ext2fs_resize_inode_bitmap bmap->magic: %li, retval: %li\n", rfs->new_fs->inode_map->magic, retval);
+	//printf("ext2fs_resize_inode_bitmap bmap->magic: %li, retval: %li\n", rfs->new_fs->inode_map->magic, retval);
 	
 	io_channel_flush(rfs->old_fs->io);
 
@@ -909,7 +909,7 @@ static errcode_t make_room_for_new_itables(ext2_resize_t rfs, unsigned int *need
 	if (retval)
 		return retval;
 
-	retval = mark_table_blocks(rfs->old_fs, meta_bmap); //mark as used in meta_bmap the SB, BGD, bitmaps, itables y MMP from the OLD FS
+	retval = mark_table_blocks(rfs->old_fs, meta_bmap); //mark as used in meta_bmap the SB, BGD, reserved GDT, bitmaps, itables and MMP from the OLD FS
 	if (retval)
 		return retval;
 

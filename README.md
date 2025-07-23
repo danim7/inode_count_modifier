@@ -66,7 +66,7 @@ Where:
 `Example: inode_count_modifier -c 1000000 /dev/sda1 `  
 
 ## Some other useful commands:
-- Get the number of free and used inodes:  
+### Get the number of free and used inodes:  
 
 
 <pre>
@@ -75,7 +75,7 @@ Where:
  /dev/nvme1n1p5 18911088 660776 18250312    4% /
 </pre>
 
-- Calculate some inode metrics for a given ext4 filesystem:  
+### Calculate some inode metrics for a given ext4 filesystem:  
 
 <pre>
  >> tune2fs -l /dev/sda1 | grep -E "Block|Inode"
@@ -88,8 +88,8 @@ Inode blocks per group:   512
 Inode size:	          256
 </pre>
 
-    - The current inode ratio is: [Block count] * [Block size] / [Inode count] = 16384 bytes-per-inode  
-    - The inode tables take [Inode count] * [Inode size] = 167772160 bytes = 160 MiB  
+   - The current inode ratio is: [Block count] * [Block size] / [Inode count] = 16384 bytes-per-inode  
+   - The inode tables take [Inode count] * [Inode size] = 167772160 bytes = 160 MiB  
 
 
 # TODO
@@ -99,7 +99,7 @@ Inode size:	          256
 - improve controls on low space scenarios to avoid running out of space during the transformation. Improve increaser to make multiple passes moving itables and freeing data
 - performance: move itable blocks instead of inodes one by one
 - check if there would be any particular case where the reducer will overwrite necessary inodes before reading them (or get a formal prove this will never happen)??
-- is there any impact in the "resize_inode" ?
+- is there any impact in the "resize_inode"? it shall not, because ext2fs_reserve_super_and_bgd() also marks the reserved GDT blocks (except for meta_bg)
 - edge cases: itable too big for last group in a fs with no flex_bg
 - improve the build system: "configure, make, etc..."
 - build a fancy progress display with rfs->progress
