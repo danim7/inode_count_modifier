@@ -35,7 +35,7 @@ This will create filesystem with the following characteristics:
 | --------------: | ----------------:| -------------------------: |
 | 10 GiB | 655 360 | 160 MiB |
 | 100 GiB | 6 553 600 | 1.56 GiB |
-| 1 TiB | 65 536 000 | 15.63 GiB |
+| 1 TiB | 67 108 864 | 16 GiB |
 
 
 # Compilation
