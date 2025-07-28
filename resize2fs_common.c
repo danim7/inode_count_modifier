@@ -103,7 +103,7 @@ errcode_t progress_callback(ext2_filsys fs,
 
 	return 0;
 }
-
+/*this function will update block numbers when the blocks are moved*/
 errcode_t migrate_ea_block(ext2_resize_t rfs, ext2_ino_t ino,
 				  struct ext2_inode *inode, int *changed)
 {
@@ -151,6 +151,7 @@ void quiet_com_err_proc(const char *whoami EXT2FS_ATTR((unused)),
 {
 }
 
+/*auxiliar function to update inode reference when the inode number changes*/
 int fix_ea_entries(ext2_extent imap, struct ext2_ext_attr_entry *entry,
 			  struct ext2_ext_attr_entry *end, ext2_ino_t last_ino)
 {
@@ -169,6 +170,7 @@ int fix_ea_entries(ext2_extent imap, struct ext2_ext_attr_entry *entry,
 	return modified;
 }
 
+/*auxiliar function to update inode reference when the inode number changes*/
 int fix_ea_ibody_entries(ext2_extent imap,
 				struct ext2_inode_large *inode, int inode_size,
 				ext2_ino_t last_ino)
@@ -190,6 +192,7 @@ int fix_ea_ibody_entries(ext2_extent imap,
 	return fix_ea_entries(imap, start, end, last_ino);
 }
 
+/*auxiliar function to update inode reference when the inode number changes*/
 int fix_ea_block_entries(ext2_extent imap, char *block_buf,
 				unsigned int blocksize, ext2_ino_t last_ino)
 {
@@ -216,6 +219,8 @@ struct blk_cache {
 	(c).cursor = ((c).cursor + 1) % 4;	\
 }
 
+/*this function will update inode references when the inum changes.
+to do so, it calls fix_ea_block_entries(), fix_ea_ibody_entries() and fix_ea_entries()*/
 errcode_t fix_ea_inode_refs(ext2_resize_t rfs, struct ext2_inode *inode,
 				   char *block_buf, ext2_ino_t last_ino)
 {

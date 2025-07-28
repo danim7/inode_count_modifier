@@ -50,10 +50,10 @@ make
 # Usage
 
 There are two mode of operation: choose a new inode count (-c) or ratio (-r).  
-` >> inode_count_modifier [-c/-r] [new_value] [filesystem]`  
+` >> inode_count_modifier [-c|-r] [new_value] [filesystem]`  
 
 Where:  
-- c/r: select mode of operation: -c for inode count, -r for inode ratio.  
+- c|r: select mode of operation: -c for inode count, -r for inode ratio.  
 - new value: total inodes for (-c), new bytes-per-inode ratio for (-r).  
 - filesystem: device of the ext4 partition to be modified.  
 
@@ -95,9 +95,9 @@ Inode size:	          256
 # TODO
 
 - support bigalloc, blocksizes different than 4096, other non-standard mkfs features...
-- test 32/64bits, no flex_bg, inode size different than 256 bytes, extended attributes, bigger fs, etc...also automatize tests
+- test 32/64bits, no flex_bg, inode size different than 256 bytes, bigger fs, etc...also automatize tests
 - improve controls on low space scenarios to avoid running out of space during the transformation. Improve increaser to make multiple passes moving itables and freeing data
-- performance: move itable blocks instead of inodes one by one
+- performance: move itable blocks instead of inodes one by one - first check buffering done by io_ functions
 - check if there would be any particular case where the reducer will overwrite necessary inodes before reading them (or get a formal prove this will never happen)??
 - is there any impact in the "resize_inode"? it shall not, because ext2fs_reserve_super_and_bgd() also marks the reserved GDT blocks (except for meta_bg)
 - edge cases: itable too big for last group in a fs with no flex_bg

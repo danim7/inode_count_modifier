@@ -379,11 +379,7 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 	int             flexbg_size = 0, flexbg_i;
 	ext2fs_inode_bitmap inode_bitmap = NULL;
 
-	/*if ((rfs->old_fs->group_desc_count <=
-	     rfs->new_fs->group_desc_count) &&
-	    !rfs->bmap)
-		return 0;
-*/
+	rfs->bmap = 0;
 	set_com_err_hook(quiet_com_err_proc);
 
 	retval = ext2fs_open_inode_scan(rfs->old_fs, 0, &scan);
@@ -451,10 +447,6 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 		pb.is_dir = LINUX_S_ISDIR(inode->i_mode);
 		pb.changed = 0;
 
-		/* Remap EA block */
-		retval = migrate_ea_block(rfs, ino, inode, &pb.changed);
-		if (retval)
-			goto errout;
 
 		new_inode = ino;
 
@@ -522,7 +514,6 @@ remap_blocks:
 		 * with new inode numbers if we have metadata_csum enabled.
 		 */
 		rfs->old_fs->flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
-		rfs->bmap = 0; 
 		if (ext2fs_inode_has_valid_blocks2(rfs->old_fs, inode) &&
 		    (rfs->bmap || pb.is_dir)) {
 			pb.ino = new_inode;

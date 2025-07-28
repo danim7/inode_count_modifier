@@ -50,10 +50,12 @@ static char *device_name, *io_options;
 
 static void usage (char *prog)
 {
-	fprintf (stderr, _("Usage: %s [-d debug_flags] [-f] [-F] [-M] [-P] "
+	/*fprintf (stderr, _("Usage: %s [-d debug_flags] [-f] [-F] [-M] [-P] "
 			   "[-p] device [-b|-s|new_size] [-S RAID-stride] "
 			   "[-z undo_file]\n\n"),
-		 prog ? prog : "resize2fs");
+		 prog ? prog : "resize2fs");*/
+	fprintf (stderr, _("Usage: %s [-f] -c|-r new_value device \n\n"),
+		 prog ? prog : "inode_count_modifier");
 
 	exit (1);
 }
@@ -255,12 +257,12 @@ on having at least enough inodes for what the fs already has
 */
 int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsigned int value, unsigned int *ipg, int force) {
 
-  int blocksize = EXT2_BLOCK_SIZE(fs->super);
-  //unsigned long long int num_inodes = ext2fs_blocks_count(fs->super) * blocksize / inode_ratio;
-  unsigned int required_inodes = fs->super->s_inodes_count - fs->super->s_free_inodes_count;
-  long long unsigned int space;
-  unsigned int new_inodes_per_group;
-  int inode_ratio;
+  int inode_ratio, blocksize = EXT2_BLOCK_SIZE(fs->super);
+  unsigned int new_inode_count, new_inodes_per_group, itables_per_group_rounded,
+              required_inodes = fs->super->s_inodes_count - fs->super->s_free_inodes_count,
+              max_itables_per_group = blocksize*8*EXT2_INODE_SIZE(fs->super)/blocksize;
+  double itables_per_group_d;
+  long long unsigned int free_space, current_itables_space, new_itables_space;
   
   if (type_of_value == 0) {
     inode_ratio = ext2fs_blocks_count(fs->super)*blocksize/value;
@@ -269,8 +271,6 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
     inode_ratio = value;
     printf("Inode ratio requested by the user: %i bytes-per-inode\n\n", inode_ratio);
   }
-  
-  
 
 
   printf("Current inode ratio: %llu bytes-per-inode\n", ext2fs_blocks_count(fs->super)*blocksize/fs->super->s_inodes_count);
@@ -280,35 +280,35 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
   printf("Current inode tables per group: %u\n", fs->inode_blocks_per_group);
   printf("Current inodes per group: %u\n", fs->super->s_inodes_per_group);
   printf("Current space used by inode tables: ");
-  space = fs->inode_blocks_per_group*blocksize*fs->group_desc_count/1024; //in KiB
-  if (space > 1048576) {
-    printf("%.2f GiB\n", (double)space/1048576);
-  } else if (space > 1024) {
-    printf("%.2f MiB\n", (double)space/1024);
+  current_itables_space = fs->inode_blocks_per_group*fs->group_desc_count*(blocksize/1024); //in KiB
+  if (current_itables_space > 1048576) {
+    printf("%.2f GiB\n", (double)current_itables_space/1048576);
+  } else if (current_itables_space > 1024) {
+    printf("%.2f MiB\n", (double)current_itables_space/1024);
   } else {
-    printf("%.2f KiB\n", (double)space);
+    printf("%.2f KiB\n", (double)current_itables_space);
   }
-        printf("Current free space: ");
-              space = ((long long unsigned int)fs->super->s_free_blocks_count)*blocksize/1024;
-              if (space > 1048576) {
-                    printf("%.2f GiB\n", (double)space/1048576);
-              } else if (space > 1024) {
-                    printf("%.2f MiB\n", (double)space/1024);
-              } else {
-                    printf("%.2f KiB\n", (double)space);
-              }
+  printf("Current free space: ");
+  free_space = ((long long unsigned int)fs->super->s_free_blocks_count)*(blocksize/1024);
+  if (free_space > 1048576) {
+        printf("%.2f GiB\n", (double)free_space/1048576);
+  } else if (free_space > 1024) {
+        printf("%.2f MiB\n", (double)free_space/1024);
+  } else {
+        printf("%.2f KiB\n", (double)free_space);
+  }
   printf("\n");
 
-  //new_inodes_per_group = EXT2_BLOCKS_PER_GROUP(fs->super)*blocksize/inode_ratio;
   new_inodes_per_group = ext2fs_div64_ceil(
                                           ext2fs_div64_ceil(ext2fs_blocks_count(fs->super)*blocksize, inode_ratio),
                                           fs->group_desc_count);
 
-  double itables_per_group_d = ((double)EXT2_INODE_SIZE(fs->super)*new_inodes_per_group)/blocksize;
-
+  itables_per_group_d = //((double)EXT2_INODE_SIZE(fs->super)*new_inodes_per_group)/blocksize;
+  //ext2fs_blocks_count(fs->super)*blocksize/inode_ratio/fs->group_desc_count*EXT2_INODE_SIZE(fs->super)/blocksize;
+  (double)ext2fs_blocks_count(fs->super)/inode_ratio/fs->group_desc_count*EXT2_INODE_SIZE(fs->super);
   printf("New inode tables per group (based on inode ratio, before rounding): %f\n", itables_per_group_d);
-		
-		
+
+
   /*
    * Finally, make sure the number of inodes per group is a
    * multiple of 8.  This is needed to simplify the bitmap
@@ -322,7 +322,7 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
           new_inodes_per_group += 8;
       }
   }
-  unsigned int itables_per_group_rounded = (((new_inodes_per_group *
+  itables_per_group_rounded = (((new_inodes_per_group *
 				  EXT2_INODE_SIZE(fs->super)) +
 			         blocksize - 1) /
 			        blocksize);
@@ -337,7 +337,6 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
     printf("  itables_per_group was %u, forced to 1\n", itables_per_group_rounded);
     itables_per_group_rounded = 1;
   } else {
-    unsigned int max_itables_per_group = blocksize*8*EXT2_INODE_SIZE(fs->super)/blocksize;
     if (itables_per_group_rounded > max_itables_per_group) {
        printf("  itables_per_group was %u, forced to %u as the remaining inodes would not be addressable in the inode bitmap\n",
                     itables_per_group_rounded, max_itables_per_group);
@@ -345,23 +344,25 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
     }
   }
 
-  printf("New inode ratio: %u bytes-per-inode\n", EXT2_BLOCKS_PER_GROUP(fs->super)*blocksize
-                                                     /
-                                    (itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super)));
-                                    
-  unsigned int new_inode_count = fs->group_desc_count*(itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super));
+  new_inode_count = fs->group_desc_count*(itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super));
   printf("New inode count: %u\n", new_inode_count);
+  if (new_inode_count < EXT2_FIRST_INODE(fs->super)+1) {
+          printf("The inode count is too low!\n");
+          exit(1);
+  }
+
   new_inodes_per_group = itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super);
+  printf("New inode ratio: %llu bytes-per-inode\n", ext2fs_blocks_count(fs->super)*blocksize/new_inode_count);
   printf("New inodes per group: %u\n\n", new_inodes_per_group);
 
   printf("New space used by inode tables: ");
-  space = ((long long unsigned int) itables_per_group_rounded)*blocksize*fs->group_desc_count/1024;
-  if (space > 1048576) {
-    printf("%.2f GiB\n", (double)space/1048576);
-  } else if (space > 1024) {
-    printf("%.2f MiB\n", (double)space/1024);
+  new_itables_space = ((long long unsigned int) itables_per_group_rounded)*fs->group_desc_count*(blocksize/1024);
+  if (new_itables_space > 1048576) {
+    printf("%.2f GiB\n", (double)new_itables_space/1048576);
+  } else if (new_itables_space > 1024) {
+    printf("%.2f MiB\n", (double)new_itables_space/1024);
   } else {
-    printf("%.2f KiB\n", (double)space);
+    printf("%.2f KiB\n", (double)new_itables_space);
   }
   printf("\n");
 
@@ -376,7 +377,12 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
         exit(0);
   }
         
-  if (space > ((long long unsigned int) fs->super->s_free_blocks_count)*blocksize/1024) {
+  if (new_inode_count > fs->super->s_inodes_count && new_itables_space > free_space) {
+              if (new_itables_space-current_itables_space > free_space) {
+                       printf("The free space in the filesystem is too low to perform the change:\n"
+                              "It will not be possible to allocate large enough inode tables for the chosen inode %s\n", type_of_value ? "ratio" : "count");
+                       exit(1);
+              }
               printf("The filesystem doesn't have enough free space to perform the change in a safe way.\n");
               if (force) {
                        printf("As the force flag has been provided, we will proceed with the change\n");

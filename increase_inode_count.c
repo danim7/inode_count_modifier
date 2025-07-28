@@ -540,6 +540,38 @@ errout:
 }
 
 
+int update_block_reference(ext2_filsys fs, blk64_t	*block_nr,
+			 e2_blkcnt_t blockcnt,
+			 blk64_t ref_block EXT2FS_ATTR((unused)),
+			 int ref_offset EXT2FS_ATTR((unused)), void *priv_data)
+{
+	struct process_block_struct *pb;
+	errcode_t	retval;
+	blk64_t		block, new_block;
+	int		ret = 0;
+
+	pb = (struct process_block_struct *) priv_data;
+	block = *block_nr;
+	if (pb->rfs->bmap) {
+		new_block = extent_translate(fs, pb->rfs->bmap, block);
+		if (new_block) {
+			*block_nr = new_block;
+			ret |= BLOCK_CHANGED;
+			pb->changed = 1;
+//#ifdef RESIZE2FS_DEBUG
+//			if (pb->rfs->flags & RESIZE_DEBUG_BMOVE)
+				printf("ino=%u, blockcnt=%lld, %llu->%llu\n",
+				       pb->old_ino, (long long) blockcnt,
+				       (unsigned long long) block,
+				       (unsigned long long) new_block);
+//#endif
+			block = new_block;
+		}
+	}
+	return ret;
+}
+
+
 static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 {
 	struct process_block_struct	pb;
@@ -548,22 +580,14 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 	ext2_inode_scan 	scan = NULL;
 	errcode_t		retval;
 	char			*block_buf = 0;
-	ext2_ino_t		start_to_move;
 	int			inode_size;
-	int			update_ea_inode_refs = 0;
 
-	/*if ((rfs->old_fs->group_desc_count <=
-	     rfs->new_fs->group_desc_count) &&
-	    !rfs->bmap)
-		return 0;
-*/
+
 	set_com_err_hook(quiet_com_err_proc);
 
 	retval = ext2fs_open_inode_scan(rfs->old_fs, 0, &scan);
 	if (retval) goto errout;
 
-	retval = ext2fs_init_dblist(rfs->old_fs, 0);
-	if (retval) goto errout;
 	retval = ext2fs_get_array(rfs->old_fs->blocksize, 3, &block_buf);
 	if (retval) goto errout;
 
@@ -585,10 +609,7 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 		retval = ENOMEM;
 		goto errout;
 	}
-	/*
-	 * First, copy all of the inodes that need to be moved
-	 * elsewhere in the inode table
-	 */
+
 	while (1) {
 		retval = ext2fs_get_next_inode_full(scan, &ino, inode, inode_size);
 		if (retval) goto errout;
@@ -598,7 +619,6 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 		if (inode->i_links_count == 0 && ino != EXT2_RESIZE_INO)
 			continue; /* inode not in use */
 
-		pb.is_dir = LINUX_S_ISDIR(inode->i_mode);
 		pb.changed = 0;
 
 		/* Remap EA block */
@@ -608,10 +628,6 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 
 		new_inode = ino;
 
-			goto remap_blocks; /* Don't need to move inode. */
-
-		
-remap_blocks:
 		if (pb.changed)
 			retval = ext2fs_write_inode_full(rfs->old_fs,
 							 new_inode,
@@ -620,51 +636,26 @@ remap_blocks:
 			goto errout;
 
 		/*
-		 * Update inodes to point to new blocks; schedule directory
-		 * blocks for inode remapping.  Need to write out dir blocks
-		 * with new inode numbers if we have metadata_csum enabled.
+		 * Update inodes to point to new blocks
 		 */
 		rfs->old_fs->flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
 		if (ext2fs_inode_has_valid_blocks2(rfs->old_fs, inode) &&
-		    (rfs->bmap || pb.is_dir)) {
+		    (rfs->bmap)) {
 			pb.ino = new_inode;
 			pb.old_ino = ino;
 			pb.has_extents = inode->i_flags & EXT4_EXTENTS_FL;
 			retval = ext2fs_block_iterate3(rfs->old_fs,
 						       new_inode, 0, block_buf,
-						       process_block, &pb);
+						       update_block_reference, &pb);
 			if (retval)
 				goto errout;
 			if (pb.error) {
 				retval = pb.error;
 				goto errout;
 			}
-		} else if ((inode->i_flags & EXT4_INLINE_DATA_FL) &&
-			   (rfs->bmap || pb.is_dir)) {
-			/* inline data dir; update it too */
-			retval = ext2fs_add_dir_block2(rfs->old_fs->dblist,
-						       new_inode, 0, 0);
-			if (retval)
-				goto errout;
-		}
-
-		/* Fix up extent block checksums with the new inode number */
-		if (ext2fs_has_feature_metadata_csum(rfs->old_fs->super) &&
-		    (inode->i_flags & EXT4_EXTENTS_FL)) {
-			retval = ext2fs_fix_extents_checksums(rfs->old_fs,
-							      new_inode, NULL);
-			if (retval)
-				goto errout;
 		}
 	}
 
-	if (update_ea_inode_refs &&
-	    ext2fs_has_feature_ea_inode(rfs->new_fs->super)) {
-		retval = fix_ea_inode_refs(rfs, inode, block_buf,
-					   start_to_move);
-		if (retval)
-			goto errout;
-	}
 	io_channel_flush(rfs->old_fs->io);
 
 errout:
@@ -1008,6 +999,14 @@ search_for_space:
 errout:
 	if (meta_bmap)
 		ext2fs_free_block_bitmap(meta_bmap);
+	if (rfs->reserve_blocks) {
+		ext2fs_free_block_bitmap(rfs->reserve_blocks);
+		rfs->reserve_blocks = 0;
+	}
+	if (rfs->move_blocks) {
+		ext2fs_free_block_bitmap(rfs->move_blocks);
+		rfs->move_blocks = 0;
+	}
 
 	return retval;
 
