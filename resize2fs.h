@@ -199,8 +199,6 @@ __u64 extent_translate(ext2_filsys fs, ext2_extent extent, __u64 old_loc);
 errcode_t progress_callback(ext2_filsys fs,
 				   ext2_inode_scan scan EXT2FS_ATTR((unused)),
 				   dgrp_t group, void * priv_data);
-errcode_t migrate_ea_block(ext2_resize_t rfs, ext2_ino_t ino,
-				  struct ext2_inode *inode, int *changed);
 void quiet_com_err_proc(const char *whoami EXT2FS_ATTR((unused)),
 			       errcode_t code EXT2FS_ATTR((unused)),
 			       const char *fmt EXT2FS_ATTR((unused)),

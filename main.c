@@ -262,7 +262,7 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
               required_inodes = fs->super->s_inodes_count - fs->super->s_free_inodes_count,
               max_itables_per_group = blocksize*8*EXT2_INODE_SIZE(fs->super)/blocksize;
   double itables_per_group_d;
-  long long unsigned int free_space, current_itables_space, new_itables_space;
+  blk64_t free_space, current_itables_space, new_itables_space, safe_margin;
   
   if (type_of_value == 0) {
     inode_ratio = ext2fs_blocks_count(fs->super)*blocksize/value;
@@ -272,15 +272,12 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
     printf("Inode ratio requested by the user: %i bytes-per-inode\n\n", inode_ratio);
   }
 
-
-  printf("Current inode ratio: %llu bytes-per-inode\n", ext2fs_blocks_count(fs->super)*blocksize/fs->super->s_inodes_count);
-  printf("Current inode count: %u\n", fs->super->s_inodes_count);
-
-  printf("Inodes currently used by the filesystem: %u\n", required_inodes);
   printf("Current inode tables per group: %u\n", fs->inode_blocks_per_group);
+  printf("Current inode count: %u\n", fs->super->s_inodes_count);
+  printf("Current inode ratio: %llu bytes-per-inode\n", ext2fs_blocks_count(fs->super)*blocksize/fs->super->s_inodes_count);
   printf("Current inodes per group: %u\n", fs->super->s_inodes_per_group);
   printf("Current space used by inode tables: ");
-  current_itables_space = fs->inode_blocks_per_group*fs->group_desc_count*(blocksize/1024); //in KiB
+  current_itables_space = ((blk64_t)fs->inode_blocks_per_group)*fs->group_desc_count*(blocksize/1024); //in KiB
   if (current_itables_space > 1048576) {
     printf("%.2f GiB\n", (double)current_itables_space/1048576);
   } else if (current_itables_space > 1024) {
@@ -288,8 +285,10 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
   } else {
     printf("%.2f KiB\n", (double)current_itables_space);
   }
+
+  printf("\nInodes currently used by the filesystem: %u\n", required_inodes);
   printf("Current free space: ");
-  free_space = ((long long unsigned int)fs->super->s_free_blocks_count)*(blocksize/1024);
+  free_space = ext2fs_free_blocks_count(fs->super)*(blocksize/1024);
   if (free_space > 1048576) {
         printf("%.2f GiB\n", (double)free_space/1048576);
   } else if (free_space > 1024) {
@@ -353,10 +352,10 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
 
   new_inodes_per_group = itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super);
   printf("New inode ratio: %llu bytes-per-inode\n", ext2fs_blocks_count(fs->super)*blocksize/new_inode_count);
-  printf("New inodes per group: %u\n\n", new_inodes_per_group);
+  printf("New inodes per group: %u\n", new_inodes_per_group);
 
   printf("New space used by inode tables: ");
-  new_itables_space = ((long long unsigned int) itables_per_group_rounded)*fs->group_desc_count*(blocksize/1024);
+  new_itables_space = ((blk64_t) itables_per_group_rounded)*fs->group_desc_count*(blocksize/1024);
   if (new_itables_space > 1048576) {
     printf("%.2f GiB\n", (double)new_itables_space/1048576);
   } else if (new_itables_space > 1024) {
@@ -376,8 +375,9 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
         printf("The existing filesystem already has %u inodes. No change needed.\n", new_inode_count);
         exit(0);
   }
-        
-  if (new_inode_count > fs->super->s_inodes_count && new_itables_space > free_space) {
+
+  safe_margin = new_itables_space/2; /*TODO: think about how to calculate the safe_margin*/
+  if (new_inode_count > fs->super->s_inodes_count && new_itables_space > free_space - safe_margin) {
               if (new_itables_space-current_itables_space > free_space) {
                        printf("The free space in the filesystem is too low to perform the change:\n"
                               "It will not be possible to allocate large enough inode tables for the chosen inode %s\n", type_of_value ? "ratio" : "count");
@@ -852,7 +852,7 @@ int main (int argc, char ** argv)
 	}
 	free(mtpt);
 	if (retval) {
-		com_err(program_name, retval, _("while trying to resize %s"),
+		com_err(program_name, retval, _("while trying to modify inode count on %s"),
 			device_name);
 		fprintf(stderr,
 			_("Please run 'e2fsck -fy %s' to fix the filesystem\n"

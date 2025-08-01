@@ -7,21 +7,22 @@ if [ "$#" -ne 1 ]; then
 	exit -1
 fi
 
-
+script_name=$(basename "$0")
 path_to_bin=$1
-image_file=/tmp/tmpfs/test.256M.ext4.img
+image_file=/tmp/${script_name}_tmpfs/test.256M.ext4.img
+mount_dir=/tmp/${script_name}_mounted
 
 cd /tmp
-mkdir mounted
-mkdir tmpfs
-sudo umount /tmp/mounted
-sudo umount /tmp/tmpfs
+mkdir ${mount_dir}
+mkdir ${script_name}_tmpfs
+sudo umount ${mount_dir}
+sudo umount /tmp/${script_name}_tmpfs
 rm $image_file
-sudo mount -t tmpfs -o size=256m none /tmp/tmpfs/
+sudo mount -t tmpfs -o size=256m none /tmp/${script_name}_tmpfs/
 fallocate -l 255m $image_file
 mkfs.ext4 -m 0 -E root_owner=`id -u`:`id -g` -i 8192 $image_file
-sudo mount -o loop $image_file mounted/
-cd mounted/
+sudo mount -o loop $image_file ${mount_dir}
+cd ${mount_dir}
 mkdir folder
 cd folder/
 
@@ -59,19 +60,19 @@ while [ $count -le $max ]; do
 done
 
 cd /tmp
-df -i  mounted
-df -Th mounted
-rhash -Hr mounted > SHA1SUM
-getfattr -dR mounted/ | zstd > GETFATTR-D-MOUNTED.zst
-sudo umount /tmp/mounted
+df -i  ${mount_dir}
+df -Th ${mount_dir}
+rhash -Hr ${mount_dir} > ${script_name}_SHA1SUM
+getfattr -dR ${mount_dir} | zstd > ${script_name}_GETFATTR-D-MOUNTED.zst
+sudo umount ${mount_dir}
 e2fsck -vf $image_file
 
-$path_to_bin -r 4096 $image_file > output_test_1
+$path_to_bin -r 4096 $image_file > ${script_name}_output_test_1
 e2fsck -vf $image_file  || { echo 'test 1 failed' ; exit 1; }
-sudo mount -o loop $image_file mounted/
+sudo mount -o loop $image_file ${mount_dir}
 
-HASH_A=`getfattr -dR mounted/ | sha1sum | cut -f1 -d" "`
-HASH_B=`unzstd -c GETFATTR-D-MOUNTED.zst | sha1sum | cut -f1 -d" "`
+HASH_A=`getfattr -dR ${mount_dir} | sha1sum | cut -f1 -d" "`
+HASH_B=`unzstd -c ${script_name}_GETFATTR-D-MOUNTED.zst | sha1sum | cut -f1 -d" "`
 if [[ "$HASH_A" == "$HASH_B" ]]
 then 
  echo "xattr comparison ok"
@@ -79,7 +80,7 @@ else
  echo "xattr comparison NOT ok"
  exit -2
 fi
-rhash --skip-ok -c SHA1SUM
+rhash --skip-ok -c ${script_name}_SHA1SUM
 if [[ $? -eq 0 ]]
 then 
  echo "rhash test ok"
@@ -88,7 +89,7 @@ else
  exit -2
 fi
 
-cd mounted
+cd ${mount_dir}
 while [ $count -le $max ]; do
 	cp -r --preserve=mode,ownership,xattr folder folder_${count} 2>/dev/null
 	if [ $? -ne 0 ];   then
@@ -102,25 +103,25 @@ while [ $count -le $max ]; do
 done
 
 cd /tmp
-df -i  mounted
-df -Th mounted
+df -i  ${mount_dir}
+df -Th ${mount_dir}
 
-find mounted/ -name "file_18" -exec rm {} \;
-rm -f SHA1SUM GETFATTR-D-MOUNTED.zst
-rhash -Hr mounted > SHA1SUM
-getfattr -dR mounted/ | zstd > GETFATTR-D-MOUNTED.zst
-new_count=`df -i mounted/ | tail -n +2  | tr -s " "  | cut -d" " -f3`
+find ${mount_dir} -name "file_18" -exec rm {} \;
+rm -f ${script_name}_SHA1SUM ${script_name}_GETFATTR-D-MOUNTED.zst
+rhash -Hr ${mount_dir} > ${script_name}_SHA1SUM
+getfattr -dR ${mount_dir} | zstd > ${script_name}_GETFATTR-D-MOUNTED.zst
+new_count=`df -i ${mount_dir} | tail -n +2  | tr -s " "  | cut -d" " -f3`
 echo $new_count
 
-sudo umount /tmp/mounted
+sudo umount ${mount_dir}
 e2fsck -vf $image_file 
 
-$path_to_bin -c $new_count  $image_file > output_test_2
+$path_to_bin -c $new_count  $image_file > ${script_name}_output_test_2
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
-sudo mount -o loop $image_file mounted/
+sudo mount -o loop $image_file ${mount_dir}
 
-HASH_A=`getfattr -dR mounted/ | sha1sum | cut -f1 -d" "`
-HASH_B=`unzstd -c GETFATTR-D-MOUNTED.zst | sha1sum | cut -f1 -d" "`
+HASH_A=`getfattr -dR ${mount_dir} | sha1sum | cut -f1 -d" "`
+HASH_B=`unzstd -c ${script_name}_GETFATTR-D-MOUNTED.zst | sha1sum | cut -f1 -d" "`
 if [[ "$HASH_A" == "$HASH_B" ]]
 then 
  echo "xattr comparison ok"
@@ -128,7 +129,7 @@ else
  echo "xattr comparison NOT ok"
  exit -2
 fi
-rhash --skip-ok -c SHA1SUM
+rhash --skip-ok -c ${script_name}_SHA1SUM
 if [[ $? -eq 0 ]]
 then 
  echo "rhash test ok"

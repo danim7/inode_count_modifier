@@ -103,46 +103,7 @@ errcode_t progress_callback(ext2_filsys fs,
 
 	return 0;
 }
-/*this function will update block numbers when the blocks are moved*/
-errcode_t migrate_ea_block(ext2_resize_t rfs, ext2_ino_t ino,
-				  struct ext2_inode *inode, int *changed)
-{
-	char *buf = NULL;
-	blk64_t new_block;
-	errcode_t err = 0;
 
-	/* No EA block or no remapping?  Quit early. */
-	if (ext2fs_file_acl_block(rfs->old_fs, inode) == 0 || !rfs->bmap)
-		return 0;
-	new_block = extent_translate(rfs->old_fs, rfs->bmap,
-		ext2fs_file_acl_block(rfs->old_fs, inode));
-	if (new_block == 0)
-		return 0;
-
-	/* Set the new ACL block */
-	printf("migrate_ea_block, inode %u, old_block %llu, new_block %llu\n", ino,ext2fs_file_acl_block(rfs->old_fs, inode), new_block);
-	ext2fs_file_acl_block_set(rfs->old_fs, inode, new_block);
-
-	/* Update checksum */
-	if (ext2fs_has_feature_metadata_csum(rfs->new_fs->super)) {
-		err = ext2fs_get_mem(rfs->old_fs->blocksize, &buf);
-		if (err)
-			return err;
-		rfs->old_fs->flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
-		err = ext2fs_read_ext_attr3(rfs->old_fs, new_block, buf, ino);
-		rfs->old_fs->flags &= ~EXT2_FLAG_IGNORE_CSUM_ERRORS;
-		if (err)
-			goto out;
-		err = ext2fs_write_ext_attr3(rfs->old_fs, new_block, buf, ino);
-		if (err)
-			goto out;
-	}
-	*changed = 1;
-
-out:
-	ext2fs_free_mem(&buf);
-	return err;
-}
 
 void quiet_com_err_proc(const char *whoami EXT2FS_ATTR((unused)),
 			       errcode_t code EXT2FS_ATTR((unused)),
