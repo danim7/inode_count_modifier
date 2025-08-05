@@ -53,7 +53,7 @@ rhash -Hr ${mount_dir} > ${script_name}_SHA1SUM
 sudo umount ${mount_dir}
 e2fsck -f $image_file
 
-$path_to_bin -f -r 8192 $image_file > ${script_name}_output_test_1
+$path_to_bin -f -r 8192 $image_file > ${script_name}_output_test_1 || { echo 'modification 1 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 1 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 
@@ -93,7 +93,7 @@ new_count=`df -i ${mount_dir} | tail -n +2  | tr -s " "  | cut -d" " -f3`
 sudo umount ${mount_dir}
 e2fsck -f $image_file
 
-$path_to_bin -c $new_count $image_file > ${script_name}_output_test_2
+$path_to_bin -c $new_count $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 
@@ -109,8 +109,15 @@ sudo umount ${mount_dir}
 
 e2fsck -f $image_file
 
-$path_to_bin -f -r 8192 $image_file > ${script_name}_output_test_3
+$path_to_bin -f -r 8192 $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
+
+$path_to_bin -r 16384 $image_file > ${script_name}_output_test_4 || { echo 'modification 4 failed' ; exit 1; }
+e2fsck -vf $image_file  || { echo 'test 4 failed' ; exit 1; }
+
+$path_to_bin -f -r 12345 $image_file > ${script_name}_output_test_5 || { echo 'modification 5 failed' ; exit 1; }
+e2fsck -vf $image_file  || { echo 'test 5 failed' ; exit 1; }
+
 sudo mount -o loop $image_file ${mount_dir}
 
 rhash --skip-ok -c ${script_name}_SHA1SUM

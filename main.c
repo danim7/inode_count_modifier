@@ -251,11 +251,72 @@ err:
 }
 
 
+static int check_space_last_group(ext2_filsys fs, unsigned int itables_per_group) {
+
+	ext2fs_block_bitmap	meta_bmap;
+	blk64_t                 b;
+	errcode_t	        retval;
+	unsigned int            movable_blocks = 0;
+	ext2_badblocks_list	badblock_list = 0;
+
+
+	retval = ext2fs_allocate_block_bitmap(fs, _("meta-data blocks"), &meta_bmap);
+	if (retval)
+		return retval;
+
+	retval = mark_table_blocks(fs, meta_bmap); //mark as used in meta_bmap the SB, BGD, reserved GDT, bitmaps, itables and MMP
+	if (retval)
+		return retval;
+
+	retval = ext2fs_read_bb_inode(fs, &badblock_list);
+	if (retval) {
+		printf("Error while reading badblock list in check_space_last_group()\n");
+		exit(1);
+	}
+
+	for (b = ext2fs_group_first_block2(fs, fs->group_desc_count-1); b < ext2fs_blocks_count(fs->super); b++) {
+	        if (!ext2fs_test_block_bitmap2(meta_bmap, b) && !ext2fs_badblocks_list_test(badblock_list, b))
+	              movable_blocks++;
+	}
+
+/*TODO: This could be further optimized. For the given filesystem and new inode count, we may calculate if
+  the last inode table could be evacuated and its space freed before we allocate the new itable. For those cases,
+  the if condition could be updated to movable_blocks < (itables_per_group-fs->inode_blocks_per_group)*/
+	if (movable_blocks < itables_per_group) {
+	      printf("************ STOP ************\n");
+	      if (!ext2fs_has_feature_flex_bg(fs->super))
+	          printf("The filesystem flex_bg feature is not set\n");
+	      if (!fs->super->s_log_groups_per_flex)
+	          printf("The value of s_log_groups_per_flex is %u\n", fs->super->s_log_groups_per_flex);
+	      printf("The last group only has %u movable blocks\n", movable_blocks);
+	      printf("This is not enough to allocate a new inode table of %u blocks\n", itables_per_group);
+	      printf("Under these conditions, it is not possible to continue.\n\n");
+	      printf("You may try first one of these options:\n");
+	      printf(" - Use debugfs to %s%s%s\n",  !ext2fs_has_feature_flex_bg(fs->super) ? "set the flex_bg feature " : "",
+	                                            !ext2fs_has_feature_flex_bg(fs->super) && !fs->super->s_log_groups_per_flex ? "and " : "",
+	                                            !fs->super->s_log_groups_per_flex ? "set a value of log_groups_per_flex to 4 in the superblock (default mkfs value)" : "");
+	      printf(" - Use resize2fs to grow the filesystem by at least %u blocks\n", itables_per_group-movable_blocks);
+	      if (fs->group_desc_count > 1)
+	        printf(" - Use resize2fs to shrink the filesystem to %u blocks, in order to get rid of the last group\n", EXT2_BLOCKS_PER_GROUP(fs->super)*(fs->group_desc_count-1));
+	      printf("After that, you can try again to change the inode count\n");
+	      exit(1);
+	}
+
+errout:
+	if (meta_bmap)
+		ext2fs_free_block_bitmap(meta_bmap);
+	if (badblock_list)
+		ext2fs_badblocks_list_free(badblock_list);
+
+	return 0;
+}
+
+
 /*
 it shall replicate what is done in ext2fs_initialize(), with some extra checks
 on having at least enough inodes for what the fs already has
 */
-int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsigned int value, unsigned int *ipg, int force) {
+static int calculate_new_inodes_per_group(ext2_filsys fs, int type_of_value, long long unsigned int value, unsigned int *ipg, int force) {
 
   int inode_ratio, blocksize = EXT2_BLOCK_SIZE(fs->super);
   unsigned int new_inode_count, new_inodes_per_group, itables_per_group_rounded,
@@ -325,10 +386,7 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
 				  EXT2_INODE_SIZE(fs->super)) +
 			         blocksize - 1) /
 			        blocksize);
-		
 
-		
-  //unsigned int itables_per_group_rounded = ext2fs_div64_ceil(EXT2_INODE_SIZE(fs->super)*new_inodes_per_group,blocksize);
 
   printf("New inode tables per group (after rounding to fill last itable block): %u\n", itables_per_group_rounded);
 
@@ -376,19 +434,27 @@ int calculate_new_inode_ratio(ext2_filsys fs, int type_of_value, long long unsig
         exit(0);
   }
 
-  safe_margin = new_itables_space/2; /*TODO: think about how to calculate the safe_margin*/
-  if (new_inode_count > fs->super->s_inodes_count && new_itables_space > free_space - safe_margin) {
-              if (new_itables_space-current_itables_space > free_space) {
-                       printf("The free space in the filesystem is too low to perform the change:\n"
-                              "It will not be possible to allocate large enough inode tables for the chosen inode %s\n", type_of_value ? "ratio" : "count");
-                       exit(1);
+
+  if (new_inode_count > fs->super->s_inodes_count) {
+              safe_margin = new_itables_space/2; /*TODO: think about how to calculate the safe_margin*/
+              if (new_itables_space+safe_margin > free_space) {
+                      if (new_itables_space-current_itables_space > free_space) {
+                               printf("The free space in the filesystem is too low to perform the change:\n"
+                                      "It will not be possible to allocate large enough inode tables for the chosen inode %s\n", type_of_value ? "ratio" : "count");
+                               exit(1);
+                      }
+                      printf("The filesystem doesn't have enough free space to perform the change in a safe way.\n");
+                      if (force) {
+                               printf("As the force flag has been provided, we will proceed with the change\n");
+                      } else {
+                               printf("Re-run with the force flag if you want to try anyway.\n");
+                               exit(1);
+                      }
               }
-              printf("The filesystem doesn't have enough free space to perform the change in a safe way.\n");
-              if (force) {
-                       printf("As the force flag has been provided, we will proceed with the change\n");
-              } else {
-                       printf("Re-run with the force flag if you want to try anyway.\n");
-                       exit(1);
+
+
+              if (!ext2fs_has_feature_flex_bg(fs->super) || !fs->super->s_log_groups_per_flex) {
+                    check_space_last_group(fs, itables_per_group_rounded);
               }
   }
    
@@ -823,16 +889,12 @@ int main (int argc, char ** argv)
 		  printf("You must specify either '-c' for inode count or '-r' for inode ratio\n");
 		  exit(1);
 		}
-		
-                //new_size = strtoull(new_size_str, NULL, 0);
-                
-                //printf("orphan file: %u\n", fs->super->s_orphan_file_inum);
 
-		
-	        retval = calculate_new_inode_ratio(fs, ratio_type==0?0:1, new_inode_value, &new_inodes_per_group, force);
+
+	        retval = calculate_new_inodes_per_group(fs, ratio_type==0?0:1, new_inode_value, &new_inodes_per_group, force);
 	        
 	        printf("new_inodes_per_group: %i\n", new_inodes_per_group);
-	        //exit(0);
+
 	        if (retval) {
 	          goto errout;
 	        }

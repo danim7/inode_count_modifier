@@ -67,7 +67,7 @@ getfattr -dR ${mount_dir} | zstd > ${script_name}_GETFATTR-D-MOUNTED.zst
 sudo umount ${mount_dir}
 e2fsck -vf $image_file
 
-$path_to_bin -r 4096 $image_file > ${script_name}_output_test_1
+$path_to_bin -r 4096 $image_file > ${script_name}_output_test_1 || { echo 'modification 1 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 1 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 
@@ -116,7 +116,7 @@ echo $new_count
 sudo umount ${mount_dir}
 e2fsck -vf $image_file 
 
-$path_to_bin -c $new_count  $image_file > ${script_name}_output_test_2
+$path_to_bin -c $new_count  $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 

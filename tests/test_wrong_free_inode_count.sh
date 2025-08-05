@@ -26,13 +26,13 @@ rhash -rH ${mount_dir} > ${script_name}_SHA1SUM
 sudo umount ${mount_dir}
 dumpe2fs $image_file > ${script_name}_dumpe2fs_before
 
-$path_to_bin -f -r 4096 $image_file > ${script_name}_output_test_1
+$path_to_bin -f -r 4096 $image_file > ${script_name}_output_test_1 || { echo 'modification 1 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 1 failed' ; exit 1; }
-$path_to_bin -r 24096 $image_file > ${script_name}_output_test_2
+$path_to_bin -r 24096 $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
-$path_to_bin -c 12 $image_file > ${script_name}_output_test_3
+$path_to_bin -c 12 $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
-$path_to_bin -f -r 4096 $image_file > ${script_name}_output_test_4
+$path_to_bin -f -r 4096 $image_file > ${script_name}_output_test_4 || { echo 'modification 4 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 4 failed' ; exit 1; }
 
 sudo mount -o loop $image_file ${mount_dir}

@@ -528,4 +528,42 @@ errcode_t fix_sb_journal_backup(ext2_filsys fs)
 	return 0;
 }
 
+errcode_t mark_table_blocks(ext2_filsys fs,
+				   ext2fs_block_bitmap bmap)
+{
+	dgrp_t			i;
+	blk64_t			blk;
+
+	for (i = 0; i < fs->group_desc_count; i++) {
+		ext2fs_reserve_super_and_bgd(fs, i, bmap);
+
+		/*
+		 * Mark the blocks used for the inode table
+		 */
+		blk = ext2fs_inode_table_loc(fs, i);
+		if (blk)
+			ext2fs_mark_block_bitmap_range2(bmap, blk,
+						fs->inode_blocks_per_group);
+
+		/*
+		 * Mark block used for the block bitmap
+		 */
+		blk = ext2fs_block_bitmap_loc(fs, i);
+		if (blk)
+			ext2fs_mark_block_bitmap2(bmap, blk);
+
+		/*
+		 * Mark block used for the inode bitmap
+		 */
+		blk = ext2fs_inode_bitmap_loc(fs, i);
+		if (blk)
+			ext2fs_mark_block_bitmap2(bmap, blk);
+	}
+	/* Reserve the MMP block */
+	if (ext2fs_has_feature_mmp(fs->super) &&
+	    fs->super->s_mmp_block > fs->super->s_first_data_block &&
+	    fs->super->s_mmp_block < ext2fs_blocks_count(fs->super))
+		ext2fs_mark_block_bitmap2(bmap, fs->super->s_mmp_block);
+	return 0;
+}
 

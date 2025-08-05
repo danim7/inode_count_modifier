@@ -230,6 +230,7 @@ errcode_t resize2fs_calculate_summary_stats(ext2_filsys fs);
 errcode_t fix_sb_journal_backup(ext2_filsys fs);
 errcode_t fix_orphan_file_inode(ext2_filsys fs);
 errcode_t fix_resize_inode(ext2_filsys fs);
+errcode_t mark_table_blocks(ext2_filsys fs, ext2fs_block_bitmap bmap);
 
 
 

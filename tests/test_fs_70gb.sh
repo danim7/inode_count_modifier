@@ -28,28 +28,28 @@ rhash -rH ${mount_dir} > ${script_name}_SHA1SUM
 sudo umount ${mount_dir}
 e2fsck -vf $image_file
 
-$path_to_bin -r 8192 $image_file > ${script_name}_output_test_1
+$path_to_bin -r 8192 $image_file > ${script_name}_output_test_1 || { echo 'modification 1 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 1 failed' ; exit 1; }
 
-$path_to_bin -f -r 4096 $image_file > ${script_name}_output_test_2
+$path_to_bin -f -r 4096 $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
 
-$path_to_bin -r 88192 $image_file > ${script_name}_output_test_3
+$path_to_bin -r 88192 $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
 
-$path_to_bin -r 108192 $image_file > ${script_name}_output_test_4
+$path_to_bin -r 108192 $image_file > ${script_name}_output_test_4 || { echo 'modification 4 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 4 failed' ; exit 1; }
 
-$path_to_bin -r 36192 $image_file > ${script_name}_output_test_5
+$path_to_bin -r 36192 $image_file > ${script_name}_output_test_5 || { echo 'modification 5 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 5 failed' ; exit 1; }
 
-$path_to_bin -r 228192 $image_file > ${script_name}_output_test_6
+$path_to_bin -r 228192 $image_file > ${script_name}_output_test_6 || { echo 'modification 6 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 6 failed' ; exit 1; }
 
-$path_to_bin -r 32768 $image_file > ${script_name}_output_test_7
+$path_to_bin -r 32768 $image_file > ${script_name}_output_test_7 || { echo 'modification 7 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 7 failed' ; exit 1; }
 
-$path_to_bin -f -r 4096 $image_file > ${script_name}_output_test_8
+$path_to_bin -f -r 4096 $image_file > ${script_name}_output_test_8 || { echo 'modification 8 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 8 failed' ; exit 1; }
 
 
