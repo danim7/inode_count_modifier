@@ -609,6 +609,37 @@ remap_blocks:
               goto errout;
         }
         total_inodes_free = 0;
+        /*****************************************************************************************************
+        We will migrate the inodes in-place to the existing tables. We do not allocate new itables when
+        reducing the inode count. The advantage of this approach is that we don't need any free blocks in the
+        filesystem for this operation. It could be done in a FS with zero free blocks, which might also be the
+        reason to run the reducer: free some space for data.
+        
+        Let:
+        g: block group, 0-based
+        ipg: inodes per group
+        pos: inode position within the inode table of the block group, 1-based
+        inum: inode number
+        
+        This gives the inode number formula:
+        inum = g * ipg + pos
+        
+        When reducing the inode count, we start from the highest inode number and go down to 1.
+        
+        This operation shall not overwrite a needed inode before it is migrated:
+        To overwrite a needed inode in a given g & pos before being migrated, its inum_old shall be
+        lesser than its inum_new, as the migration loop is moving backwards. So:
+        
+        inum_old < inum_new
+        
+        Substitute. As we talk about the same memory address, g & pos are the same, only ipg changes:
+        
+        g * ipg_old + pos < g * ipg_new + pos
+        
+        Thus, an overwrite will require ipg_olg < ipg_new.
+        However, we are reducing the inode count, so we are doing ipg_old > ipg_new.
+        Therefore, the migration loop will not overwrite needed inodes before migrating them.
+        ****************************************************************************************************/
 	for (i = rfs->new_fs->super->s_inodes_count; i>0; i--) {
 	
 	        retval = ext2fs_read_inode_full(rfs->old_fs, i, inode, inode_size);

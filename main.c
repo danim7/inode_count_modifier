@@ -297,7 +297,8 @@ static int check_space_last_group(ext2_filsys fs, unsigned int itables_per_group
 	                                            !fs->super->s_log_groups_per_flex ? "set a value of log_groups_per_flex to 4 in the superblock (default mkfs value)" : "");
 	      printf(" - Use resize2fs to grow the filesystem by at least %u blocks\n", itables_per_group-movable_blocks);
 	      if (fs->group_desc_count > 1)
-	        printf(" - Use resize2fs to shrink the filesystem to %u blocks, in order to get rid of the last group\n", EXT2_BLOCKS_PER_GROUP(fs->super)*(fs->group_desc_count-1));
+	        printf(" - Use resize2fs to shrink the filesystem to %llu blocks, in order to get rid of the last group\n",
+	                                                  (blk64_t)EXT2_BLOCKS_PER_GROUP(fs->super)*(fs->group_desc_count-1));
 	      printf("After that, you can try again to change the inode count\n");
 	      exit(1);
 	}
