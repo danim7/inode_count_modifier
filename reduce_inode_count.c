@@ -38,7 +38,7 @@
 //#endif
 
 
-static errcode_t inode_ref_fix(ext2_resize_t rfs);
+
 static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned int new_inodes_per_group);
 
 errcode_t reduce_inode_count(ext2_filsys fs, int flags,
@@ -75,40 +75,9 @@ errcode_t reduce_inode_count(ext2_filsys fs, int flags,
 	ext2fs_mark_super_dirty(fs);
 	ext2fs_flush(fs);
 
-	/*init_resource_track(&rtrack, "fix_uninit_block_bitmaps 1", fs->io);
-	fix_uninit_block_bitmaps(fs);
-	print_resource_track(rfs, &rtrack, fs->io);*/
 	retval = ext2fs_dup_handle(fs, &rfs->new_fs);
 	if (retval)
 		goto errout;
-
-	/*
-	init_resource_track(&rtrack, "resize_group_descriptors", fs->io);
-	retval = resize_group_descriptors(rfs, *new_size);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);*/
-
-
-/*	init_resource_track(&rtrack, "move_bg_metadata", fs->io);
-	retval = move_bg_metadata(rfs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);
-*/
-
-	/*init_resource_track(&rtrack, "zero_high_bits_in_metadata", fs->io);
-	retval = zero_high_bits_in_inodes(rfs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);*/
-
-/*	init_resource_track(&rtrack, "adjust_superblock", fs->io);
-	retval = adjust_superblock(rfs, *new_size);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);
-*/
 
 	init_resource_track(&rtrack, "inode_relocation_to_smaller_tables", fs->io);
 	retval = inode_relocation_to_smaller_tables(rfs, new_inodes_per_group);
@@ -117,86 +86,6 @@ errcode_t reduce_inode_count(ext2_filsys fs, int flags,
 	print_resource_track(rfs, &rtrack, fs->io);
 	
 	
-//	init_resource_track(&rtrack, "fix_uninit_block_bitmaps 2", fs->io);
-//	fix_uninit_block_bitmaps(rfs->new_fs);
-//	print_resource_track(rfs, &rtrack, fs->io);
-//	/* Clear the block bitmap uninit flag for the last block group */
-//	ext2fs_bg_flags_clear(rfs->new_fs, rfs->new_fs->group_desc_count - 1,
-//			     EXT2_BG_BLOCK_UNINIT);
-			     
-
-
-	//*new_size = ext2fs_blocks_count(rfs->new_fs->super);
-	
-	
-
-
-	/*init_resource_track(&rtrack, "blocks_to_move", fs->io);
-	retval = blocks_to_move(rfs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);
-
-#ifdef RESIZE2FS_DEBUG
-	if (rfs->flags & RESIZE_DEBUG_BMOVE)
-		printf("Number of free blocks: %llu/%llu, Needed: %llu\n",
-		       (unsigned long long) ext2fs_free_blocks_count(rfs->old_fs->super),
-		       (unsigned long long) ext2fs_free_blocks_count(rfs->new_fs->super),
-		       (unsigned long long) rfs->needed_blocks);
-#endif
-
-	init_resource_track(&rtrack, "block_mover", fs->io);
-	retval = block_mover(rfs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);
-
-	init_resource_track(&rtrack, "inode_scan_and_fix", fs->io);
-	retval = inode_scan_and_fix(rfs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);*/
-
-//	init_resource_track(&rtrack, "inode_ref_fix", fs->io);
-	//retval = inode_ref_fix(rfs);
-	//if (retval)
-	//	goto errout;
-	//print_resource_track(rfs, &rtrack, fs->io);
-
-	/*init_resource_track(&rtrack, "move_itables", fs->io);
-	retval = move_itables(rfs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);*/
-
-	/*retval = clear_sparse_super2_last_group(rfs);
-	if (retval)
-		goto errout;*/
-
-	/*init_resource_track(&rtrack, "calculate_summary_stats", fs->io);
-	retval = resize2fs_calculate_summary_stats(rfs->new_fs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);*/
-/*
-	init_resource_track(&rtrack, "fix_resize_inode", fs->io);
-	retval = fix_resize_inode(rfs->new_fs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);
-
-	init_resource_track(&rtrack, "fix_orphan_file_inode", fs->io);
-	retval = fix_orphan_file_inode(rfs->new_fs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);
-
-	init_resource_track(&rtrack, "fix_sb_journal_backup", fs->io);
-	retval = fix_sb_journal_backup(rfs->new_fs);
-	if (retval)
-		goto errout;
-	print_resource_track(rfs, &rtrack, fs->io);
-*/
 	retval = ext2fs_set_gdt_csum(rfs->new_fs);
 	if (retval)
 		goto errout;
@@ -232,6 +121,153 @@ errout:
 		ext2fs_free_mem(&rfs->itable_buf);
 	ext2fs_free_mem(&rfs);
 	return retval;
+}
+
+/*auxiliar function to update inode reference when the inode number changes*/
+static int fix_ea_entries(ext2_extent imap, struct ext2_ext_attr_entry *entry,
+			  struct ext2_ext_attr_entry *end, ext2_ino_t last_ino)
+{
+	int modified = 0;
+	ext2_ino_t new_ino;
+
+	while (entry < end && !EXT2_EXT_IS_LAST_ENTRY(entry)) {
+		if (entry->e_value_inum > last_ino) {
+			new_ino = ext2fs_extent_translate(imap,
+							  entry->e_value_inum);
+			entry->e_value_inum = new_ino;
+			modified = 1;
+		}
+		entry = EXT2_EXT_ATTR_NEXT(entry);
+	}
+	return modified;
+}
+
+/*auxiliar function to update inode reference when the inode number changes*/
+static int fix_ea_ibody_entries(ext2_extent imap,
+				struct ext2_inode_large *inode, int inode_size,
+				ext2_ino_t last_ino)
+{
+	struct ext2_ext_attr_entry *start, *end;
+	__u32 *ea_magic;
+
+	if (inode->i_extra_isize == 0)
+		return 0;
+
+	ea_magic = (__u32 *)((char *)inode + EXT2_GOOD_OLD_INODE_SIZE +
+				inode->i_extra_isize);
+	if (*ea_magic != EXT2_EXT_ATTR_MAGIC)
+		return 0;
+
+	start = (struct ext2_ext_attr_entry *)(ea_magic + 1);
+	end = (struct ext2_ext_attr_entry *)((char *)inode + inode_size);
+
+	return fix_ea_entries(imap, start, end, last_ino);
+}
+
+/*auxiliar function to update inode reference when the inode number changes*/
+static int fix_ea_block_entries(ext2_extent imap, char *block_buf,
+				unsigned int blocksize, ext2_ino_t last_ino)
+{
+	struct ext2_ext_attr_header *header;
+	struct ext2_ext_attr_entry *start, *end;
+
+	header = (struct ext2_ext_attr_header *)block_buf;
+	start = (struct ext2_ext_attr_entry *)(header+1);
+	end = (struct ext2_ext_attr_entry *)(block_buf + blocksize);
+
+	return fix_ea_entries(imap, start, end, last_ino);
+}
+
+/* A simple LRU cache to check recently processed blocks. */
+struct blk_cache {
+	int cursor;
+	blk64_t blks[4];
+};
+
+#define BLK_IN_CACHE(b,c) ((b) == (c).blks[0] || (b) == (c).blks[1] || \
+			   (b) == (c).blks[2] || (b) == (c).blks[3])
+#define BLK_ADD_CACHE(b,c) { 			\
+	(c).blks[(c).cursor] = (b);		\
+	(c).cursor = ((c).cursor + 1) % 4;	\
+}
+
+/*this function will update inode references when the inum changes.
+to do so, it calls fix_ea_block_entries(), fix_ea_ibody_entries() and fix_ea_entries()*/
+static errcode_t fix_ea_inode_refs(ext2_resize_t rfs, struct ext2_inode *inode,
+				   char *block_buf, ext2_ino_t last_ino)
+{
+	ext2_filsys	fs = rfs->old_fs;
+	ext2_inode_scan	scan = NULL;
+	ext2_ino_t	ino;
+	int		inode_size = EXT2_INODE_SIZE(fs->super);
+	blk64_t		blk;
+	int		modified;
+	struct blk_cache blk_cache;
+	struct ext2_ext_attr_header *header;
+	errcode_t		retval;
+
+	memset(&blk_cache, 0, sizeof(blk_cache));
+
+	header = (struct ext2_ext_attr_header *)block_buf;
+
+	retval = ext2fs_open_inode_scan(fs, 0, &scan);
+	if (retval)
+		goto out;
+
+	while (1) {
+		retval = ext2fs_get_next_inode_full(scan, &ino, inode,
+						    inode_size);
+		if (retval)
+			goto out;
+		if (!ino)
+			break;
+
+		if (inode->i_links_count == 0 && ino != EXT2_RESIZE_INO)
+			continue; /* inode not in use */
+
+		if (inode_size != EXT2_GOOD_OLD_INODE_SIZE) {
+			modified = fix_ea_ibody_entries(rfs->imap,
+					(struct ext2_inode_large *)inode,
+					inode_size, last_ino);
+			if (modified) {
+				retval = ext2fs_write_inode_full(fs, ino, inode,
+								 inode_size);
+				if (retval)
+					goto out;
+			}
+		}
+
+		blk = ext2fs_file_acl_block(fs, inode);
+		if (blk && !BLK_IN_CACHE(blk, blk_cache)) {
+			printf("fix_ea_inode_refs, inode %u, block %llu\n", ino, blk);
+			retval = ext2fs_read_ext_attr3(fs, blk, block_buf, ino);
+			if (retval)
+				goto out;
+
+			modified = fix_ea_block_entries(rfs->imap, block_buf,
+							fs->blocksize,
+							last_ino);
+			if (modified) {
+				retval = ext2fs_write_ext_attr3(fs, blk,
+								block_buf, ino);
+				if (retval)
+					goto out;
+				/*
+				 * If refcount is greater than 1, we might see
+				 * the same block referenced by other inodes
+				 * later.
+				 */
+				if (header->h_refcount > 1)
+					BLK_ADD_CACHE(blk, blk_cache);
+			}
+		}
+	}
+	retval = 0;
+out:
+	if (scan)
+		ext2fs_close_inode_scan(scan);
+	return retval;
+
 }
 
 
@@ -327,18 +363,12 @@ static errcode_t inode_ref_fix(ext2_resize_t rfs)
 		if (retval)
 			goto errout;
 	}
-	printf("rfs->old_fs->dblist: %p\n", rfs->old_fs->dblist);
-	//printf("rfs->old_fs->dblist->fs: %p\n", rfs->old_fs->dblist->fs);
-	printf("rfs->old_fs: %p\n", rfs->old_fs);
-	printf("rfs->new_fs: %p\n", rfs->new_fs);
-        //rfs->old_fs->dblist->fs = rfs->new_fs; 
-        //printf("rfs->old_fs->dblist->fs: %p\n", rfs->old_fs->dblist->fs);
+
 	rfs->old_fs->flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
 	retval = ext2fs_dblist_dir_iterate(rfs->old_fs->dblist,
 					   DIRENT_FLAG_INCLUDE_EMPTY, 0,
 					   check_and_change_inodes, &is);
 	rfs->old_fs->flags &= ~EXT2_FLAG_IGNORE_CSUM_ERRORS;
-	printf("ext2fs_dblist_dir_iterate: retval: %li\n", retval);
 	if (retval)
 		goto errout;
 	if (is.err) {
@@ -349,8 +379,7 @@ static errcode_t inode_ref_fix(ext2_resize_t rfs)
 	if (rfs->progress && (is.num < is.max_dirs))
 		(rfs->progress)(rfs, E2_RSZ_INODE_REF_UPD_PASS,
 				is.max_dirs, is.max_dirs);
-				
-						//io_channel_flush(rfs->new_fs->io);
+
 
 errout:
 	ext2fs_free_extent_table(rfs->imap);
@@ -358,9 +387,33 @@ errout:
 	return retval;
 }
 
+static int feed_dblist(ext2_filsys fs, blk64_t	*block_nr,
+			 e2_blkcnt_t blockcnt,
+			 blk64_t ref_block EXT2FS_ATTR((unused)),
+			 int ref_offset EXT2FS_ATTR((unused)), void *priv_data)
+{
+	struct process_block_struct *pb;
+	errcode_t	retval;
+	blk64_t		block, new_block;
+	int		ret = 0;
+
+	pb = (struct process_block_struct *) priv_data;
+	block = *block_nr;
 
 
-static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned int new_inodes_per_group)
+	if (pb->is_dir) {
+		retval = ext2fs_add_dir_block2(fs->dblist, pb->ino,
+					       block, (int) blockcnt);
+		if (retval) {
+			pb->error = retval;
+			ret |= BLOCK_ABORT;
+		}
+	}
+	return ret;
+}
+
+
+static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 {
 	struct process_block_struct	pb;
 	ext2_ino_t		ino, new_inode;
@@ -371,15 +424,9 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 	ext2_ino_t		start_to_move;
 	int			inode_size;
 	int			update_ea_inode_refs = 0;
-	ext2_ino_t i; 
-	dgrp_t group; 
-	unsigned int itables_a_borrar, total_inodes_free, moved_itables;
-	blk64_t itable_start, after_prev_itable, itable;
-	unsigned int *dir_count = NULL, *free_inode_count = NULL;
-	int             flexbg_size = 0, flexbg_i;
-	ext2fs_inode_bitmap inode_bitmap = NULL;
 
 	rfs->bmap = 0;
+
 	set_com_err_hook(quiet_com_err_proc);
 
 	retval = ext2fs_open_inode_scan(rfs->old_fs, 0, &scan);
@@ -390,10 +437,8 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 	retval = ext2fs_get_array(rfs->old_fs->blocksize, 3, &block_buf);
 	if (retval) goto errout;
 
-
-	start_to_move = (rfs->old_fs->group_desc_count * new_inodes_per_group);
+	start_to_move = (rfs->new_fs->group_desc_count * rfs->new_fs->super->s_inodes_per_group);
 	printf("start_to_move: %u\n", start_to_move);
-	
 	
 	/*
 	 * Check to make sure there are enough inodes
@@ -407,14 +452,6 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 		goto errout;
 	}
 	
-
-	if (rfs->progress) {
-		retval = (rfs->progress)(rfs, E2_RSZ_INODE_SCAN_PASS,
-					 0, rfs->old_fs->group_desc_count);
-		if (retval)
-			goto errout;
-	}
-	ext2fs_set_inode_callback(scan, progress_callback, (void *) rfs);
 	pb.rfs = rfs;
 	pb.inode = inode;
 	pb.error = 0;
@@ -425,21 +462,15 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 		retval = ENOMEM;
 		goto errout;
 	}
-	
-	
 	/*
 	 * First, copy all of the inodes that need to be moved
 	 * elsewhere in the inode table
 	 */
 	while (1) {
 		retval = ext2fs_get_next_inode_full(scan, &ino, inode, inode_size);
-		printf("Relocating inodes beyond the new inode limit: read inode: %u, links_count: %u\n", ino, inode->i_links_count);
 		if (retval) goto errout;
 		if (!ino)
 			break;
-			
-		if (inode->i_flags & EXT4_EA_INODE_FL)
-		    printf("EA inode: %u\n", ino);
 
 		if (inode->i_links_count == 0 && ino != EXT2_RESIZE_INO)
 			continue; /* inode not in use */
@@ -447,44 +478,34 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 		pb.is_dir = LINUX_S_ISDIR(inode->i_mode);
 		pb.changed = 0;
 
-
 		new_inode = ino;
+		if (ino <= start_to_move)
+			goto remap_inodes; /* Don't need to move inode. */
 
-		if (ino <= start_to_move){
-			goto remap_blocks;
-		}
-
-		 /*
-		 The ext2fs_new_inode() searches for the lowest inode that is available.
-		 If that behavior changes, we may need to rewrite this part.
+		/*
+		 * Find a new inode.  Now that extents and directory blocks
+		 * are tied to the inode number through the checksum, we must
+		 * set up the new inode before we start rewriting blocks.
 		 */
 		retval = ext2fs_new_inode(rfs->old_fs, 0, 0, 0, &new_inode);
 		if (retval)
 			goto errout;
-		if (new_inode > start_to_move) {
-		    printf("ext2fs_new_inode returned a new_inode beyond the new end.\n"
-		            "Fix this or selected a larger inode count (aka. lower ratio)\n");
-		    retval = -1;
-		    goto errout;
-		}
 
-		
-		printf("ext2fs_new_inode inode: %u\n", new_inode);
-		
-		ext2fs_inode_alloc_stats2(rfs->old_fs, new_inode, +1,  pb.is_dir);
-					  
-		
+		ext2fs_inode_alloc_stats2(rfs->old_fs, new_inode, +1,
+					  pb.is_dir);
 		/*
 		 * i_ctime field in xattr inodes contain a portion of the ref
 		 * count, do not overwrite.
 		 */
-		if (inode->i_flags & EXT4_EA_INODE_FL)
+		if (inode->i_flags & EXT4_EA_INODE_FL) {
 			update_ea_inode_refs = 1;
-		else
+			printf("EA inode: old %u, new %u\n", ino, new_inode);
+		} else
 			inode->i_ctime = rfs->old_fs->now ?
 				rfs->old_fs->now : time(0);
 
-		retval = ext2fs_write_inode_full(rfs->old_fs, new_inode, inode, inode_size);
+		retval = ext2fs_write_inode_full(rfs->old_fs, new_inode,
+						inode, inode_size);
 		if (retval)
 			goto errout;
 		pb.changed = 0;
@@ -500,29 +521,21 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 		}
 		ext2fs_add_extent_entry(rfs->imap, ino, new_inode);
 
-remap_blocks:
-		if (pb.changed)
-			retval = ext2fs_write_inode_full(rfs->old_fs,
-							 new_inode,
-							 inode, inode_size);
-		if (retval)
-			goto errout;
+remap_inodes:
 
 		/*
-		 * Update inodes to point to new blocks; schedule directory
-		 * blocks for inode remapping.  Need to write out dir blocks
+		 * Schedule directory blocks for inode remapping.  Need to write out dir blocks
 		 * with new inode numbers if we have metadata_csum enabled.
 		 */
 		rfs->old_fs->flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
 		if (ext2fs_inode_has_valid_blocks2(rfs->old_fs, inode) &&
-		    (rfs->bmap || pb.is_dir)) {
+		    (pb.is_dir)) {
 			pb.ino = new_inode;
 			pb.old_ino = ino;
 			pb.has_extents = inode->i_flags & EXT4_EXTENTS_FL;
 			retval = ext2fs_block_iterate3(rfs->old_fs,
 						       new_inode, 0, block_buf,
-						       process_block, &pb);
-	
+						       feed_dblist, &pb);
 			if (retval)
 				goto errout;
 			if (pb.error) {
@@ -530,7 +543,7 @@ remap_blocks:
 				goto errout;
 			}
 		} else if ((inode->i_flags & EXT4_INLINE_DATA_FL) &&
-			   (rfs->bmap || pb.is_dir)) {
+			   (pb.is_dir)) {
 			/* inline data dir; update it too */
 			retval = ext2fs_add_dir_block2(rfs->old_fs->dblist,
 						       new_inode, 0, 0);
@@ -548,139 +561,33 @@ remap_blocks:
 		}
 	}
 
-
 	if (update_ea_inode_refs &&
-	    ext2fs_has_feature_ea_inode(rfs->new_fs->super)) {
+	    ext2fs_has_feature_ea_inode(rfs->old_fs->super)) {
 		retval = fix_ea_inode_refs(rfs, inode, block_buf,
 					   start_to_move);
 		if (retval)
 			goto errout;
 	}
-	
-	printf("calling inode_ref_fix()\n");
-	retval = inode_ref_fix(rfs);
-	if (retval)
-		goto errout;
-	
-	
-	rfs->new_fs->super->s_inodes_per_group = new_inodes_per_group;
-	rfs->new_fs->inode_blocks_per_group = ext2fs_div_ceil(rfs->new_fs->super->s_inodes_per_group * rfs->new_fs->super->s_inode_size, rfs->new_fs->blocksize);
-	rfs->new_fs->group_desc_count = rfs->old_fs->group_desc_count;
-	rfs->new_fs->super->s_inodes_count = rfs->new_fs->group_desc_count * rfs->new_fs->super->s_inodes_per_group;
-	
-
-	printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
-	printf("old_fs->super->s_inodes_per_group: %u\n", rfs->old_fs->super->s_inodes_per_group);
-	printf("old_fs->super->s_inode_size: %u\n", rfs->old_fs->super->s_inode_size);
-	printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
-	printf("old_fs->blocksize: %u\n", rfs->old_fs->blocksize);
-	printf("old_fs->super->s_log_block_size: %u\n", rfs->old_fs->super->s_log_block_size);
-	printf("old_fs->super->s_inodes_count: %u\n", rfs->old_fs->super->s_inodes_count);
-	printf("\n\n");
-	printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
-	printf("new_fs->super->s_inodes_per_group: %u\n", rfs->new_fs->super->s_inodes_per_group);
-	printf("new_fs->super->s_inode_size: %u\n", rfs->new_fs->super->s_inode_size);
-	printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
-	printf("new_fs->blocksize: %u\n", rfs->new_fs->blocksize);
-	printf("new_fs->super->s_log_block_size: %u\n", rfs->new_fs->super->s_log_block_size);
-	printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
-	//exit(0);
-	
-	
-	
-
-	printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
-	printf("new_fs->super->s_inodes_per_group: %u\n", rfs->new_fs->super->s_inodes_per_group);
-	printf("new_fs->super->s_inode_size: %u\n", rfs->new_fs->super->s_inode_size);
-	printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
-	printf("new_fs->blocksize: %u\n", rfs->new_fs->blocksize);
-	printf("new_fs->super->s_log_block_size: %u\n", rfs->new_fs->super->s_log_block_size);
-	printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
-	printf("new_fs->group_desc_count: %u\n", rfs->new_fs->group_desc_count);
-
-        dir_count = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
-        if (dir_count == NULL) {
-              printf("alloc_error dir_count\n");
-              goto errout;
-        }
-        free_inode_count = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
-        if (free_inode_count == NULL) {
-              printf("alloc_error free_inode_count\n");
-              goto errout;
-        }
-        total_inodes_free = 0;
-        /*****************************************************************************************************
-        We will migrate the inodes in-place to the existing tables. We do not allocate new itables when
-        reducing the inode count. The advantage of this approach is that we don't need any free blocks in the
-        filesystem for this operation. It could be done in a FS with zero free blocks, which might also be the
-        reason to run the reducer: free some space for data.
-        
-        Let:
-        g: block group, 0-based
-        ipg: inodes per group
-        pos: inode position within the inode table of the block group, 1-based
-        inum: inode number
-        
-        This gives the inode number formula:
-        inum = g * ipg + pos
-        
-        When reducing the inode count, we start from the highest inode number and go down to 1.
-        
-        This operation shall not overwrite a needed inode before it is migrated:
-        To overwrite a needed inode in a given g & pos before being migrated, its inum_old shall be
-        lesser than its inum_new, as the migration loop is moving backwards. So:
-        
-        inum_old < inum_new
-        
-        Substitute. As we talk about the same memory address, g & pos are the same, only ipg changes:
-        
-        g * ipg_old + pos < g * ipg_new + pos
-        
-        Thus, an overwrite will require ipg_olg < ipg_new.
-        However, we are reducing the inode count, so we are doing ipg_old > ipg_new.
-        Therefore, the migration loop will not overwrite needed inodes before migrating them.
-        ****************************************************************************************************/
-	for (i = rfs->new_fs->super->s_inodes_count; i>0; i--) {
-	
-	        retval = ext2fs_read_inode_full(rfs->old_fs, i, inode, inode_size);
-	        group = (i - 1) / rfs->new_fs->super->s_inodes_per_group;
-	        printf("Moving inodes to the new itable: read inode: %u, links_count: %u, group: %u, LINUX_S_ISDIR(inode->i_mode): %i, retval: %li\n",
-	                  i, inode->i_links_count, group, LINUX_S_ISDIR(inode->i_mode), retval);
-	        if (retval)
-	            goto errout;
-	        
-        
-	        if (inode->i_links_count == 0 && i >= EXT2_FIRST_INODE(rfs->new_fs->super)) {
-	                free_inode_count[group]++;
-	                total_inodes_free++;  
-		} else {
-		      if (LINUX_S_ISDIR(inode->i_mode))
-	                  dir_count[group]++;
-
-		      //ext2fs_inode_alloc_stats2(rfs->old_fs, i, -1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
-		      ext2fs_inode_alloc_stats2(rfs->new_fs, i, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
-	        }
-	        //if inode not in use, write zeros to the itable anyway, as it may contain the previous inode
-	        retval = ext2fs_write_inode_full(rfs->new_fs, i, inode, inode_size);
-	        printf("Moving inodes to the new itable: written inode: %u, i_size_lo: %u, i_blocks: %u, retval: %li\n", i, inode->i_size,inode->i_blocks, retval);
-	        if (retval) goto errout;
-	        
-	        if (ext2fs_has_feature_metadata_csum(rfs->new_fs->super) &&
-		    (inode->i_flags & EXT4_EXTENTS_FL)) {
-			retval = ext2fs_fix_extents_checksums(rfs->new_fs, i, NULL);
-			if (retval)
-				goto errout;
-		}
-	
-	}
-
-	
 	io_channel_flush(rfs->old_fs->io);
-	//??	
-	io_channel_flush(rfs->new_fs->io);
-	
-	//TODO??: set the rest of inode bitmap: ext2fs_bg_itable_unused_set??
-	
+
+errout:
+	reset_com_err_hook();
+	rfs->old_fs->flags &= ~EXT2_FLAG_IGNORE_CSUM_ERRORS;
+	if (scan)
+		ext2fs_close_inode_scan(scan);
+	if (block_buf)
+		ext2fs_free_mem(&block_buf);
+	free(inode);
+	return retval;
+}
+
+
+static errcode_t reubicate_and_free_itables(ext2_resize_t rfs) {
+	errcode_t		retval = 0;
+	dgrp_t                  group;
+	int                     flexbg_size = 0, flexbg_i;
+	unsigned int            itables_blocks_to_be_freed;
+	blk64_t                 after_prev_itable;
 	
 	if (ext2fs_has_feature_flex_bg(rfs->new_fs->super)) {
 	    flexbg_size = 1U << rfs->new_fs->super->s_log_groups_per_flex;
@@ -726,58 +633,197 @@ remap_blocks:
 	                                      ext2fs_inode_table_loc(rfs->old_fs, group-1)+rfs->old_fs->inode_blocks_per_group-after_prev_itable, after_prev_itable);
  
 	    }
-	} else { //no flex_bg
+	} else { /*no flex_bg*/
+	        itables_blocks_to_be_freed = rfs->old_fs->inode_blocks_per_group - rfs->new_fs->inode_blocks_per_group;
 		for (group = 0; group < rfs->new_fs->group_desc_count; group++) {
-		    itables_a_borrar = rfs->old_fs->inode_blocks_per_group - rfs->new_fs->inode_blocks_per_group;
 		    ext2fs_block_alloc_stats_range(rfs->new_fs,
 		                                    ext2fs_inode_table_loc(rfs->new_fs, group) + rfs->new_fs->inode_blocks_per_group,
-	                                            itables_a_borrar,
+	                                            itables_blocks_to_be_freed,
 	                                            -1);
 	         
 	        }
 	}
-			
+	
+errout:
+	if (rfs->itable_buf)
+		ext2fs_free_mem(&rfs->itable_buf);
+	return retval;
+		
+}
+
+
+/*****************************************************************************************************
+We will migrate the inodes in-place to the existing tables. We do not allocate new itables when
+reducing the inode count. The advantage of this approach is that we don't need any free blocks in the
+filesystem for this operation. It could be done in a FS with zero free blocks, which might also be the
+reason to run the reducer: free some space for data.
+
+Let:
+g: block group, 0-based
+ipg: inodes per group
+pos: inode position within the inode table of the block group, 1-based
+inum: inode number
+
+This gives the inode number formula:
+inum = g * ipg + pos
+
+When reducing the inode count, we start from the highest inode number and go down to 1.
+
+This operation shall not overwrite a needed inode before it is migrated:
+To overwrite a needed inode in a given g & pos before being migrated, its inum_old shall be
+lesser than its inum_new, as the migration loop is moving backwards. So:
+
+inum_old < inum_new
+
+Substitute. As we talk about the same memory address, g & pos are the same, only ipg changes:
+
+g * ipg_old + pos < g * ipg_new + pos
+
+Thus, an overwrite will require ipg_olg < ipg_new.
+However, we are reducing the inode count, so we are doing ipg_old > ipg_new.
+Therefore, the migration loop will not overwrite needed inodes before migrating them.
+****************************************************************************************************/
+static errcode_t migrate_inodes_backwards_loop(ext2_resize_t rfs, unsigned int *dir_count, unsigned int *free_inode_count, unsigned int *total_free_inodes) {
+	ext2_ino_t		ino;
+	struct ext2_inode      *inode = NULL;
+	errcode_t		retval;
+	int			inode_size = EXT2_INODE_SIZE(rfs->new_fs->super);
+	dgrp_t                  group;
+
+	inode = malloc(inode_size);
+	if (!inode) {
+		retval = ENOMEM;
+		goto errout;
+	}
+
+	for (ino = rfs->new_fs->super->s_inodes_count; ino>0; ino--) {
+	
+	        retval = ext2fs_read_inode_full(rfs->old_fs, ino, inode, inode_size);
+	        group = ext2fs_group_of_ino(rfs->new_fs, ino);
+	        printf("Migrating inode %u to new itable: links_count: %u, i_size_lo: %u, i_blocks: %u, old group: %u, new group: %u, read_retval: %li",
+	                      ino, inode->i_links_count, inode->i_size, inode->i_blocks,
+	                      ext2fs_group_of_ino(rfs->old_fs, ino), group, retval);
+	        if (retval)
+	            goto errout;
+	        
+        
+	        if (inode->i_links_count == 0 && ino >= EXT2_FIRST_INODE(rfs->new_fs->super)) {
+	                free_inode_count[group]++;
+	                (*total_free_inodes)++;
+		} else {
+		      if (LINUX_S_ISDIR(inode->i_mode))
+	                  dir_count[group]++;
+
+		      ext2fs_inode_alloc_stats2(rfs->new_fs, ino, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
+	        }
+	        /*if inode not in use, write zeros to the itable anyway, as it may contain the previous inode*/
+	        retval = ext2fs_write_inode_full(rfs->new_fs, ino, inode, inode_size);
+	        printf(" - write_retval: %li\n", retval);
+	        if (retval)
+	                goto errout;
+	        
+	        if (ext2fs_has_feature_metadata_csum(rfs->new_fs->super) &&
+		    (inode->i_flags & EXT4_EXTENTS_FL)) {
+			retval = ext2fs_fix_extents_checksums(rfs->new_fs, ino, NULL);
+			if (retval)
+				goto errout;
+		}
+	
+	}
+
+errout:
+	if (inode)
+	    free(inode);
+
+	return retval;
+}
+
+
+static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned int new_inodes_per_group) {
+
+	ext2_ino_t		total_free_inodes = 0;
+	errcode_t		retval;
+	dgrp_t                  group;
+	unsigned int           *dir_count = NULL, *free_inode_count = NULL;
+
+
+        dir_count = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
+        if (dir_count == NULL) {
+              printf("alloc_error dir_count\n");
+	      retval = ENOMEM;
+              goto errout;
+        }
+        free_inode_count = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
+        if (free_inode_count == NULL) {
+              printf("alloc_error free_inode_count\n");
+	      retval = ENOMEM;
+              goto errout;
+        }
+
+
+	rfs->new_fs->super->s_inodes_per_group = new_inodes_per_group;
+	rfs->new_fs->inode_blocks_per_group = ext2fs_div_ceil(rfs->new_fs->super->s_inodes_per_group * rfs->new_fs->super->s_inode_size, rfs->new_fs->blocksize);
+	rfs->new_fs->super->s_inodes_count = rfs->new_fs->group_desc_count * rfs->new_fs->super->s_inodes_per_group;
+	
+
+	printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
+	printf("old_fs->super->s_inodes_per_group: %u\n", rfs->old_fs->super->s_inodes_per_group);
+	printf("old_fs->super->s_inode_size: %u\n", rfs->old_fs->super->s_inode_size);
+	printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
+	printf("old_fs->blocksize: %u\n", rfs->old_fs->blocksize);
+	printf("old_fs->super->s_log_block_size: %u\n", rfs->old_fs->super->s_log_block_size);
+	printf("old_fs->super->s_inodes_count: %u\n", rfs->old_fs->super->s_inodes_count);
+	printf("\n\n");
+	printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
+	printf("new_fs->super->s_inodes_per_group: %u\n", rfs->new_fs->super->s_inodes_per_group);
+	printf("new_fs->super->s_inode_size: %u\n", rfs->new_fs->super->s_inode_size);
+	printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
+	printf("new_fs->blocksize: %u\n", rfs->new_fs->blocksize);
+	printf("new_fs->super->s_log_block_size: %u\n", rfs->new_fs->super->s_log_block_size);
+	printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
+	printf("new_fs->group_desc_count: %u\n", rfs->new_fs->group_desc_count);
+
+
+	printf("calling inode_scan_and_fix()\n");
+	retval = inode_scan_and_fix(rfs);
+	if (retval)
+		goto errout;
+
+	printf("calling inode_ref_fix()\n");
+	retval = inode_ref_fix(rfs);
+	if (retval)
+		goto errout;
+
+	io_channel_flush(rfs->old_fs->io);
+
+        printf("calling migrate_inodes_backwards_loop()\n");
+        retval = migrate_inodes_backwards_loop(rfs, dir_count, free_inode_count, &total_free_inodes);
+        if (retval)
+	    goto errout;
+
+	printf("calling reubicate_and_free_itables()\n");
+	retval = reubicate_and_free_itables(rfs);
+	if (retval)
+	    goto errout;
+
 
 	for (group = 0; group < rfs->new_fs->group_desc_count; group++) {
-	            
-	      if (ext2fs_bg_used_dirs_count(rfs->new_fs, group) == dir_count[group]) {
-	            printf("Group %u, dir_count matches: %u\n", group, dir_count[group]);
-	      } else {
-	            printf("Group %u, dir_count does not match: %u vs in descriptor %u\n", group, dir_count[group], ext2fs_bg_used_dirs_count(rfs->new_fs, group));
-	            ext2fs_bg_used_dirs_count_set(rfs->new_fs, group, dir_count[group]);
-	            ext2fs_group_desc_csum_set(rfs->new_fs, group);
-	      }
-	      if (ext2fs_bg_free_inodes_count(rfs->new_fs, group) == free_inode_count[group]) {
-	            printf("Group %u, free_inode_count matches: %u\n", group, free_inode_count[group]);
-	      } else {
-	            printf("Group %u, free_inode_count does not match: %u vs in descriptor %u\n", group, free_inode_count[group], ext2fs_bg_free_inodes_count(rfs->new_fs, group));
-	            ext2fs_bg_free_inodes_count_set(rfs->new_fs, group, free_inode_count[group]);
-	            ext2fs_group_desc_csum_set(rfs->new_fs, group);
-	      }
+	      printf("Updating stats in group %u: dirs_count = %u, free_inodes_count = %u\n", group, dir_count[group], free_inode_count[group]);
+              ext2fs_bg_used_dirs_count_set(rfs->new_fs, group, dir_count[group]);
+              ext2fs_bg_free_inodes_count_set(rfs->new_fs, group, free_inode_count[group]);
+              ext2fs_group_desc_csum_set(rfs->new_fs, group);
 	}
-	rfs->new_fs->super->s_free_inodes_count = total_inodes_free;
+	rfs->new_fs->super->s_free_inodes_count = total_free_inodes;
 	ext2fs_mark_super_dirty(rfs->new_fs);
-	
 	io_channel_flush(rfs->new_fs->io);
 
 
 errout:
-	if (inode_bitmap)
-		ext2fs_free_inode_bitmap(inode_bitmap);
-	free(dir_count);
-	free(free_inode_count);
-	reset_com_err_hook();
-	rfs->old_fs->flags &= ~EXT2_FLAG_IGNORE_CSUM_ERRORS;
-	if (rfs->bmap) {
-		ext2fs_free_extent_table(rfs->bmap);
-		rfs->bmap = 0;
-	}
-	if (scan)
-		ext2fs_close_inode_scan(scan);
-	if (block_buf)
-		ext2fs_free_mem(&block_buf);
-	free(inode);
-	
+	if (dir_count)
+            free(dir_count);
+        if (free_inode_count)
+            free(free_inode_count);
 
 	return retval;
 }
+

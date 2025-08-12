@@ -154,7 +154,6 @@ extern errcode_t reduce_inode_count(ext2_filsys fs, int flags,
 extern errcode_t adjust_fs_info(ext2_filsys fs, ext2_filsys old_fs,
 				ext2fs_block_bitmap reserve_blocks,
 				blk64_t new_size);
-//extern blk64_t calculate_minimum_resize_size(ext2_filsys fs, int flags);
 extern void adjust_new_size(ext2_filsys fs, blk64_t *sizep);
 
 
@@ -193,25 +192,10 @@ extern void ext2fs_progress_close(ext2_sim_progmeter prog);
 
 
 /* resize2fs_common.c */
-void fix_uninit_block_bitmaps(ext2_filsys fs);
-__u64 extent_translate(ext2_filsys fs, ext2_extent extent, __u64 old_loc);
-
-errcode_t progress_callback(ext2_filsys fs,
-				   ext2_inode_scan scan EXT2FS_ATTR((unused)),
-				   dgrp_t group, void * priv_data);
 void quiet_com_err_proc(const char *whoami EXT2FS_ATTR((unused)),
 			       errcode_t code EXT2FS_ATTR((unused)),
 			       const char *fmt EXT2FS_ATTR((unused)),
 			       va_list args EXT2FS_ATTR((unused)));
-int fix_ea_entries(ext2_extent imap, struct ext2_ext_attr_entry *entry,
-			  struct ext2_ext_attr_entry *end, ext2_ino_t last_ino);
-int fix_ea_ibody_entries(ext2_extent imap,
-				struct ext2_inode_large *inode, int inode_size,
-				ext2_ino_t last_ino);
-int fix_ea_block_entries(ext2_extent imap, char *block_buf,
-				unsigned int blocksize, ext2_ino_t last_ino);
-errcode_t fix_ea_inode_refs(ext2_resize_t rfs, struct ext2_inode *inode,
-				   char *block_buf, ext2_ino_t last_ino);
 struct process_block_struct {
 	ext2_resize_t 		rfs;
 	ext2_ino_t		ino;
@@ -222,14 +206,6 @@ struct process_block_struct {
 	int			changed;
 	int			has_extents;
 };
-int process_block(ext2_filsys fs, blk64_t	*block_nr,
-			 e2_blkcnt_t blockcnt,
-			 blk64_t ref_block EXT2FS_ATTR((unused)),
-			 int ref_offset EXT2FS_ATTR((unused)), void *priv_data);
-errcode_t resize2fs_calculate_summary_stats(ext2_filsys fs);
-errcode_t fix_sb_journal_backup(ext2_filsys fs);
-errcode_t fix_orphan_file_inode(ext2_filsys fs);
-errcode_t fix_resize_inode(ext2_filsys fs);
 errcode_t mark_table_blocks(ext2_filsys fs, ext2fs_block_bitmap bmap);
 
 

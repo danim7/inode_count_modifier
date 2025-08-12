@@ -7,6 +7,17 @@ if [ "$#" -ne 1 ]; then
     exit -1
 fi
 
+
+#70G in fallocate = 73400320 blocks of 1K
+#add some margin up to 78000000 and compare
+#with available free space
+free_space=`df --output=avail /tmp | tail -1`
+echo "free space in blocks 1K = " $free_space
+if [ $free_space -lt 78000000 ]; then
+	echo "not enough free space on the underlying device to run the test"
+	exit -1
+fi
+
 script_name=$(basename "$0")
 mount_dir=/tmp/${script_name}_mounted
 path_to_bin=$1

@@ -1,6 +1,6 @@
 # Introduction
 
-This tool provides a way to change the bytes/inode ratio of an existing ext4 filesystem, thus increasing or decreasing the inode count. Previously, this parameter was chosen at filesystem creation time and could not be modified afterwards.  
+This tool provides a way to change the bytes/inode ratio of an existing ext4 filesystem, thus increasing or decreasing the inode count. Previously, this parameter was chosen at filesystem creation time and could not be modified afterwards. Now it is possible to trade inodes for free space, and vice versa.  
 
 It is largely based on the source code of "resize2fs" from e2fsprogs v1.47.2.  
 
@@ -48,6 +48,8 @@ make
 </pre>
 
 # Usage
+
+The partition must be **unmounted**, the change can only be performed **offline**.
 
 There are two mode of operation: choose a new inode count (-c) or ratio (-r).  
 ` >> inode_count_modifier [-c|-r] [new_value] [filesystem]`  
