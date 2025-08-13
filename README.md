@@ -28,7 +28,7 @@ There are two options:
   
   
 By default (/etc/mke2fs.conf), mkfs.ext4 creates a filesystem using a inode ratio value of 16384 bytes-per-inode, and a inode size of 256 bytes.  
-This will create filesystem with the following characteristics:  
+This will create filesystems with the following characteristics:  
 
   
 | Filesystem size | Number of inodes | Space used by inode tables |

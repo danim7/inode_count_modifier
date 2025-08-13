@@ -327,6 +327,14 @@ static int calculate_new_inodes_per_group(ext2_filsys fs, int type_of_value, lon
   blk64_t free_space, current_itables_space, new_itables_space, safe_margin;
   
   if (type_of_value == 0) {
+    if (value < EXT2_FIRST_INODE(fs->super)+1) {
+        printf("The requested inode count is too low. Minimum is %u\n\n", EXT2_FIRST_INODE(fs->super)+1);
+        exit(1);
+    }
+    if (value > 0xffffffff) {
+        printf("The requested inode count is too high. Maximum is %u\n\n", 0xffffffff);
+        exit(1);
+    }
     inode_ratio = ext2fs_blocks_count(fs->super)*blocksize/value;
     printf("Inode count requested by the user: %llu\n\n", value);
   } else {
@@ -402,6 +410,14 @@ static int calculate_new_inodes_per_group(ext2_filsys fs, int type_of_value, lon
     }
   }
 
+
+  if (fs->group_desc_count*((blk64_t)itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super)) > 0xffffffff) {
+      printf("ERROR: the new inode count (%llu) is above the max allowed value (%u)\n",
+              fs->group_desc_count*((blk64_t)itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super)),
+              0xffffffff);
+      exit(1);
+  }
+
   new_inode_count = fs->group_desc_count*(itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super));
   printf("New inode count: %u\n", new_inode_count);
   if (new_inode_count < EXT2_FIRST_INODE(fs->super)+1) {
@@ -412,6 +428,11 @@ static int calculate_new_inodes_per_group(ext2_filsys fs, int type_of_value, lon
   new_inodes_per_group = itables_per_group_rounded*blocksize/EXT2_INODE_SIZE(fs->super);
   printf("New inode ratio: %llu bytes-per-inode\n", ext2fs_blocks_count(fs->super)*blocksize/new_inode_count);
   printf("New inodes per group: %u\n", new_inodes_per_group);
+
+  if (new_inodes_per_group > EXT2_MAX_INODES_PER_GROUP(fs->super)) {
+    printf("ERROR: the new inodes per group is above the max allowed value (%u)\n", EXT2_MAX_INODES_PER_GROUP(fs->super));
+    exit(1);
+  }
 
   printf("New space used by inode tables: ");
   new_itables_space = ((blk64_t) itables_per_group_rounded)*fs->group_desc_count*(blocksize/1024);

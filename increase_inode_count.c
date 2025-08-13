@@ -19,14 +19,14 @@
 /*
  * Increasing the inode count consists of the following phases:
  *
- *	1.  Allocate new larger inode tables
- *	2.  Migrate inodes to the new itables
- *	3.  Free the space of the old itables
- *	4.  If there were no contiguous free blocks to allocate some of the new itables:
- *	    4.a  Move some data blocks to make room for it
- *	    4.b  Update references to those data blocks in the affected files/folders
- *	    4.c  Go back to step 1 for the new itables pending allocation
- *	5.  Update group stats
+ *	1.  Reset stats for groups in new fs
+ *	2.  Allocate new larger inode tables
+ *	3.  Migrate inodes to the new itables
+ *	4.  Free the space of the old itables
+ *	5.  If there were no contiguous free blocks to allocate some of the new itables:
+ *	    5.a  Move some data blocks to make room for it
+ *	    5.b  Update references to those data blocks in the affected files/folders
+ *	    5.c  Go back to step 2 for the new itables pending allocation
  *
  */
 
@@ -666,9 +666,9 @@ static errcode_t allocate_new_itables(ext2_resize_t rfs, itable_status *new_itab
 		if (new_itable_status[group] == itable_status_not_allocated) {
 			ext2fs_inode_table_loc_set(rfs->new_fs, group, 0);
 			retval = ext2fs_allocate_group_table(rfs->new_fs, group, 0);
-			if (retval) {
-			        printf("unsuccessful ext2fs_allocate_group_table for group %u with retval %li - will retry later\n", group, retval);
-			} else {
+			if (retval == EXT2_ET_BLOCK_ALLOC_FAIL) {
+			        printf("unsuccessful ext2fs_allocate_group_table for group %u with EXT2_ET_BLOCK_ALLOC_FAIL (%li) - will retry later\n", group, retval);
+			} else if (!retval) {
 			      itable_start = ext2fs_inode_table_loc(rfs->new_fs, group);
 			      len = rfs->new_fs->inode_blocks_per_group;
 			      /*ext2fs_allocate_group_table() doesn't update stats in group if flex_bg is not set, we have to do it ourselves*/
@@ -685,6 +685,9 @@ static errcode_t allocate_new_itables(ext2_resize_t rfs, itable_status *new_itab
 			      printf("successful ext2fs_allocate_group_table for group %u with retval %li in block %llu\n", group, retval, itable_start);
 			      new_itable_status[group] = itable_status_allocated;
 			      (*allocated_new_itables)++;
+			} else {
+			      printf("failed ext2fs_allocate_group_table for group %u with retval %li - stop\n", group, retval);
+			      goto errout;
 			}
 		}
 	}
@@ -697,12 +700,7 @@ errout:
 }
 
 
-static errcode_t migrate_inodes_forward_loop(ext2_resize_t rfs,
-                            unsigned int *evacuated_inodes,
-                            unsigned int *dir_count,
-                            unsigned int *free_inode_count,
-                            itable_status *new_itable_status,
-                            unsigned int *total_inodes_free) {
+static errcode_t migrate_inodes_forward_loop(ext2_resize_t rfs, unsigned int *evacuated_inodes, itable_status *new_itable_status) {
         ext2_ino_t               ino_num = 0;
 	struct ext2_inode       *inode = NULL;
 	int                      inode_size = 0;
@@ -716,11 +714,18 @@ static errcode_t migrate_inodes_forward_loop(ext2_resize_t rfs,
 		goto errout;
 	}
 
-        for (ino_num = 1; ino_num<=rfs->old_fs->super->s_inodes_count; ino_num++) {
+        for (ino_num = 1; ino_num <= rfs->old_fs->super->s_inodes_count; ino_num++) {
+                if (!ino_num) {
+                    /*Overflow case... rfs->old_fs->super->s_inodes_count is already MAX of ext2_ino_t
+                    and we are running the increaser?? It shall not be even possible!
+                    Break just in case. The itable_status_filled shall have been set when treating the last inode*/
+                    break;
+                }
+
                 new_group = ext2fs_group_of_ino(rfs->new_fs, ino_num);
                 old_group = ext2fs_group_of_ino(rfs->old_fs, ino_num);
                 if (new_itable_status[new_group] != itable_status_allocated) {
-                    if (new_group == rfs->new_fs->group_desc_count-1)
+                    if (new_group == rfs->new_fs->group_desc_count-1) /*no more groups? break loop*/
                           break;
                     ino_num = (new_group+1) * rfs->new_fs->super->s_inodes_per_group;
                     continue;
@@ -734,22 +739,17 @@ static errcode_t migrate_inodes_forward_loop(ext2_resize_t rfs,
 
 	        evacuated_inodes[old_group]++;
 
-	        if (inode->i_links_count == 0 && ino_num >= EXT2_FIRST_INODE(rfs->new_fs->super)) {
-	                free_inode_count[new_group]++;
-	                (*total_inodes_free)++;
-
-		} else {
-			if (LINUX_S_ISDIR(inode->i_mode))
-	                    dir_count[new_group]++;
-		        ext2fs_inode_alloc_stats2(rfs->new_fs, ino_num, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
+	        if (inode->i_links_count != 0 || ino_num < EXT2_FIRST_INODE(rfs->new_fs->super)) {
+		      ext2fs_inode_alloc_stats2(rfs->new_fs, ino_num, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
 	        }
+
 	        retval = ext2fs_write_inode_full(rfs->new_fs, ino_num, inode, inode_size);
 	        printf(" - write_retval: %li\n", retval);
 	        if (retval)
 	                goto errout;
 
 	        /*are we about to completely migrate the current new itable?*/
-	        if (ino_num+1 > rfs->old_fs->super->s_inodes_count || ext2fs_group_of_ino(rfs->new_fs, ino_num+1) != new_group) {
+	        if (ino_num == rfs->old_fs->super->s_inodes_count || ext2fs_group_of_ino(rfs->new_fs, ino_num+1) != new_group) {
 	                new_itable_status[new_group] = itable_status_filled;
 	        }
 	}
@@ -930,26 +930,14 @@ errout:
 
 static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned int new_inodes_per_group) {
 
-	errcode_t	retval;
-	ext2_ino_t ino_num = 0, total_inodes_free = 0;
-	dgrp_t group = 0, allocated_new_itables = 0, prev_allocated_new_itables = 0xFFFFFFFF; /*0xFFFFFFFF to identify the first iteration*/
-	unsigned int *dir_count = NULL, *free_inode_count = NULL;
-	unsigned int *evacuated_inodes = NULL;
+	errcode_t	       retval;
+	ext2_ino_t             ino_num = 0;
+	dgrp_t                 group = 0, allocated_new_itables = 0, prev_allocated_new_itables = 0xFFFFFFFF; /*0xFFFFFFFF to identify the first iteration*/
+	unsigned int          *evacuated_inodes = NULL;
 	itable_status         *new_itable_status = NULL;
-	blk64_t		itable_start;
+	blk64_t		       itable_start;
 	
-	dir_count = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
-        if (dir_count == NULL) {
-              printf("alloc_error dir_count\n");
-	      retval = ENOMEM;
-              goto errout;
-        }
-        free_inode_count = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
-        if (free_inode_count == NULL) {
-              printf("alloc_error free_inode_count\n");
-	      retval = ENOMEM;
-              goto errout;
-        }
+
         evacuated_inodes = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
         if (evacuated_inodes == NULL) {
               printf("alloc_error evacuated_inodes\n");
@@ -987,6 +975,19 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
         printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
         printf("EXT2_FIRST_INODE(new_fs->super): %u\n", EXT2_FIRST_INODE(rfs->new_fs->super));
         printf("new_fs->super->s_log_groups_per_flex: %u\n", rfs->new_fs->super->s_log_groups_per_flex);
+        
+        retval = ext2fs_resize_inode_bitmap2(rfs->new_fs->super->s_inodes_count, rfs->new_fs->super->s_inodes_count, rfs->new_fs->inode_map);
+        if (retval) {
+            printf("error %li when calling ext2fs_resize_inode_bitmap2()\n", retval);
+            goto errout;
+        }
+        
+        for (group = 0; group < rfs->new_fs->group_desc_count; group++) {
+              ext2fs_bg_used_dirs_count_set(rfs->new_fs, group, 0);
+              ext2fs_bg_free_inodes_count_set(rfs->new_fs, group, rfs->new_fs->super->s_inodes_per_group);
+              ext2fs_bg_itable_unused_set(rfs->new_fs, group, rfs->new_fs->super->s_inodes_per_group);
+	}
+	rfs->new_fs->super->s_free_inodes_count = rfs->new_fs->super->s_inodes_count;
 
 
         do {
@@ -1004,7 +1005,7 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
 	          }
 	      }
 
-	      retval = migrate_inodes_forward_loop(rfs, evacuated_inodes, dir_count, free_inode_count, new_itable_status, &total_inodes_free);
+	      retval = migrate_inodes_forward_loop(rfs, evacuated_inodes, new_itable_status);
 	      if (retval) {
 	          printf("migrate_inodes_forward_loop returned with status %li\n", retval);
 	          goto errout;
@@ -1029,44 +1030,10 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
               prev_allocated_new_itables = allocated_new_itables;
 	} while (allocated_new_itables < rfs->new_fs->group_desc_count);
 
-	io_channel_flush(rfs->old_fs->io);
-	
-	/*complete ino_num with the first inode after the old s_inodes_count*/
-	ino_num = rfs->old_fs->super->s_inodes_count + 1;
-	/*what group in new_fs contains the highest inode number migrated by migrate_inodes_forward_loop()*/
-	group = ext2fs_group_of_ino(rfs->new_fs, rfs->old_fs->super->s_inodes_count);
-	
-	/*the first inode after the old s_inodes_count...does it also belong to the last group treated for the new_fs?
-	if so, we need to finish fixing the free inode stats for that group*/
-        if (group == ext2fs_group_of_ino(rfs->new_fs, ino_num)) {
-            printf("Completing for last group with free inodes: group: %u, ino_num: %u, adding: %u\n",
-                    group, ino_num, rfs->new_fs->super->s_inodes_per_group - rfs->old_fs->super->s_inodes_count % rfs->new_fs->super->s_inodes_per_group);
-            free_inode_count[group]+=rfs->new_fs->super->s_inodes_per_group - rfs->old_fs->super->s_inodes_count % rfs->new_fs->super->s_inodes_per_group;
-            total_inodes_free+=rfs->new_fs->super->s_inodes_per_group - rfs->old_fs->super->s_inodes_count % rfs->new_fs->super->s_inodes_per_group;
-
-        }
-        /*the inodes in the remaining groups shall all be free*/
-        for (group++; group<rfs->new_fs->group_desc_count; group++)
-            total_inodes_free+=free_inode_count[group]=rfs->new_fs->super->s_inodes_per_group;
-
-	retval = ext2fs_resize_inode_bitmap2(rfs->new_fs->super->s_inodes_count, rfs->new_fs->super->s_inodes_count, rfs->new_fs->inode_map);
-
-
-	for (group = 0; group < rfs->new_fs->group_desc_count; group++) {
-	      printf("Updating stats in group %u: dirs_count = %u, free_inodes_count = %u\n", group, dir_count[group], free_inode_count[group]);
-              ext2fs_bg_used_dirs_count_set(rfs->new_fs, group, dir_count[group]);
-              ext2fs_bg_free_inodes_count_set(rfs->new_fs, group, free_inode_count[group]);
-              ext2fs_group_desc_csum_set(rfs->new_fs, group);
-	}
-	rfs->new_fs->super->s_free_inodes_count = total_inodes_free;
 	ext2fs_mark_super_dirty(rfs->new_fs);
 	io_channel_flush(rfs->new_fs->io);
 
 errout:
-        if (dir_count)
-            free(dir_count);
-        if (free_inode_count)
-            free(free_inode_count);
         if (evacuated_inodes)
             free(evacuated_inodes);
         if (new_itable_status)
