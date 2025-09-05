@@ -655,6 +655,42 @@ errout:
 	return retval;
 }
 
+/*For a bigalloc filesystem, we may have a cluster whose blocks are used for different purposes:
+some are used for blockmaps/inodemaps and others are used for inode tables.*/
+static errcode_t fix_itables_stats_bigalloc(ext2_filsys fs, blk64_t start, unsigned int len) {
+	errcode_t	retval = 0;
+	blk64_t         blk, rem, cluster_size;
+	dgrp_t          group_of_block;
+	int             other_metadata;
+
+	cluster_size = EXT2FS_CLUSTER_RATIO(fs);
+
+        /*we assume start of the new itable given by the ext2fs_allocate_group_table function is aligned
+        with start of the cluster, we only do the fix for end of itable*/
+        blk = start+len-1;
+        group_of_block = ext2fs_group_of_blk2(fs, blk);
+
+        printf("fix_itables_stats_bigalloc, before: start: %llu, len %u, group: %u, free in group %u, free in super: %llu\n",
+                start, len, group_of_block, ext2fs_bg_free_blocks_count(fs, group_of_block), ext2fs_free_blocks_count(fs->super));
+
+        rem = (blk+1) % cluster_size;
+        if (rem) {
+              ext2fs_bg_free_blocks_count_set(fs, group_of_block, ext2fs_bg_free_blocks_count(fs, group_of_block) - 1);
+              ext2fs_bg_flags_clear(fs, group_of_block, EXT2_BG_BLOCK_UNINIT);
+              ext2fs_group_desc_csum_set(fs, group_of_block);
+              ext2fs_free_blocks_count_add(fs->super, -(cluster_size - rem));
+              ext2fs_mark_super_dirty(fs);
+              ext2fs_mark_bb_dirty(fs);
+              printf("->modif done for inuse 1\n");
+        }
+
+        printf("fix_itables_stats_bigalloc, before: start: %llu, len %u, group: %u, free in group %u, free in super: %llu\n",
+                start, len, group_of_block, ext2fs_bg_free_blocks_count(fs, group_of_block), ext2fs_free_blocks_count(fs->super));
+
+errout:
+        return retval;
+}
+
 static errcode_t allocate_new_itables(ext2_resize_t rfs, itable_status *new_itable_status, unsigned int *allocated_new_itables) {
 
 	blk64_t		itable_start;
@@ -683,6 +719,10 @@ static errcode_t allocate_new_itables(ext2_resize_t rfs, itable_status *new_itab
                                       exit(1);
                               }
 			      printf("successful ext2fs_allocate_group_table for group %u with retval %li in block %llu\n", group, retval, itable_start);
+			      if (ext2fs_has_feature_bigalloc(rfs->new_fs->super)) {
+			          fix_itables_stats_bigalloc(rfs->new_fs, itable_start, len);
+			          fix_itables_stats_bigalloc(rfs->old_fs, itable_start, len);
+			      }
 			      new_itable_status[group] = itable_status_allocated;
 			      (*allocated_new_itables)++;
 			} else {
@@ -740,7 +780,7 @@ static errcode_t migrate_inodes_forward_loop(ext2_resize_t rfs, unsigned int *ev
 	        evacuated_inodes[old_group]++;
 
 	        if (inode->i_links_count != 0 || ino_num < EXT2_FIRST_INODE(rfs->new_fs->super)) {
-		      ext2fs_inode_alloc_stats2(rfs->new_fs, ino_num, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
+		      ext2fs_inode_alloc_stats2(rfs->new_fs, ino_num, +1, LINUX_S_ISDIR(inode->i_mode));
 	        }
 
 	        retval = ext2fs_write_inode_full(rfs->new_fs, ino_num, inode, inode_size);
@@ -933,10 +973,9 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
 	errcode_t	       retval;
 	ext2_ino_t             ino_num = 0;
 	dgrp_t                 group = 0, allocated_new_itables = 0, prev_allocated_new_itables = 0xFFFFFFFF; /*0xFFFFFFFF to identify the first iteration*/
-	unsigned int          *evacuated_inodes = NULL;
+	unsigned int          *evacuated_inodes = NULL, itables_blocks_to_be_freed;
 	itable_status         *new_itable_status = NULL;
 	blk64_t		       itable_start;
-	
 
         evacuated_inodes = (unsigned int*) calloc(rfs->new_fs->group_desc_count, sizeof(unsigned int));
         if (evacuated_inodes == NULL) {
@@ -975,6 +1014,8 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
         printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
         printf("EXT2_FIRST_INODE(new_fs->super): %u\n", EXT2_FIRST_INODE(rfs->new_fs->super));
         printf("new_fs->super->s_log_groups_per_flex: %u\n", rfs->new_fs->super->s_log_groups_per_flex);
+        printf("new_fs->super->s_log_cluster_size: %u\n", rfs->new_fs->super->s_log_cluster_size);
+        printf("new_fs->cluster_ratio_bits: %u\n", rfs->new_fs->cluster_ratio_bits);
         
         retval = ext2fs_resize_inode_bitmap2(rfs->new_fs->super->s_inodes_count, rfs->new_fs->super->s_inodes_count, rfs->new_fs->inode_map);
         if (retval) {
@@ -988,7 +1029,6 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
               ext2fs_bg_itable_unused_set(rfs->new_fs, group, rfs->new_fs->super->s_inodes_per_group);
 	}
 	rfs->new_fs->super->s_free_inodes_count = rfs->new_fs->super->s_inodes_count;
-
 
         do {
 	      retval = allocate_new_itables(rfs, new_itable_status, &allocated_new_itables);
@@ -1013,11 +1053,16 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
 
 	      for (group = 0; group < rfs->new_fs->group_desc_count; group++) {
 	          itable_start = ext2fs_inode_table_loc(rfs->old_fs, group);
+	          itables_blocks_to_be_freed = rfs->old_fs->inode_blocks_per_group;
 	          if (itable_start != 0 && evacuated_inodes[group] == rfs->old_fs->super->s_inodes_per_group) {
-	                  printf("Freeing old itable of group %u, blocks %llu - %llu\n", group, itable_start, itable_start + rfs->old_fs->inode_blocks_per_group - 1);
-	        	  ext2fs_block_alloc_stats_range(rfs->old_fs, itable_start, rfs->old_fs->inode_blocks_per_group, -1);
-	        	  ext2fs_block_alloc_stats_range(rfs->new_fs, itable_start, rfs->old_fs->inode_blocks_per_group, -1);
+	                  if (ext2fs_has_feature_bigalloc(rfs->new_fs->super)) {
+	                        tweak_values_for_bigalloc(rfs, &itable_start, &itables_blocks_to_be_freed);
+	                  }
+	                  printf("Freeing old itable of group %u, blocks %llu - %llu\n", group, itable_start, itable_start + itables_blocks_to_be_freed - 1);
+	                  ext2fs_block_alloc_stats_range(rfs->old_fs, itable_start, itables_blocks_to_be_freed, -1);
+	                  ext2fs_block_alloc_stats_range(rfs->new_fs, itable_start, itables_blocks_to_be_freed, -1);
 	        	  ext2fs_inode_table_loc_set(rfs->old_fs, group, 0);
+
 	      	  }
 	      }
 

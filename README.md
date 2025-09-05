@@ -7,7 +7,7 @@ It is largely based on the source code of "resize2fs" from e2fsprogs v1.47.2.
 
 # Disclaimer
 
-As of August 2025, this is **EXPERIMENTAL** software. Make sure you have backups of your data before using it. Currently, an ext4 partition created with the default options *seems to work properly*. Support for non-default features/options needs further testing/development.  
+As of September 2025, this is **EXPERIMENTAL** software. Make sure you have backups of your data before using it. Currently, an ext4 partition created with the default options *seems to work properly*. Support for non-default features/options needs further testing/development.  
 
 This has been developed as a personal project to address a specific need. This program is published in the hope that it will be useful to someone else, but without any warranty. Please note this has not been developed by the official ext4 developers.  
 
@@ -96,12 +96,11 @@ Inode size:	          256
 
 # TODO
 
-- support bigalloc, blocksizes different than 4096, other non-standard mkfs features...
+- support blocksizes different than 4096, other non-standard mkfs features...
 - test huge fs
 - calculate minimum necessary size to perform a safe increase of inode tables
-- performance: move itable blocks instead of inodes one by one - first check buffering done by io_ functions
+- performance: move itable blocks instead of inodes one by one, first check buffering done by io_ functions. Check reading and writing for same block and different fs
 - is there any impact in the "resize_inode"? it shall not, because ext2fs_reserve_super_and_bgd() also marks the reserved GDT blocks (except for meta_bg)
 - improve the build system: "configure, make, etc..." + static build
 - build a fancy progress display with rfs->progress
-- clean, factorize and improve code to make it more readable
 

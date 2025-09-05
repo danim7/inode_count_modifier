@@ -944,7 +944,7 @@ int main (int argc, char ** argv)
 			device_name);
 		goto errout;
 	}
-	//printf(_("The filesystem on %s is now %llu (%dk) blocks long.\n\n"),  device_name, (unsigned long long) new_size, blocksize / 1024);
+	printf(_("The filesystem on %s now has %u inodes.\n\n"),  device_name, new_inodes_per_group*fs->group_desc_count);
 
 	if ((st_buf.st_size > new_file_size) &&
 	    (fd > 0)) {

@@ -618,29 +618,31 @@ static errcode_t reubicate_and_free_itables(ext2_resize_t rfs) {
 	                after_prev_itable += rfs->new_fs->inode_blocks_per_group;
 	                
 	            } else {
-	                ext2fs_block_alloc_stats_range(rfs->new_fs, after_prev_itable,
-	                                                        ext2fs_inode_table_loc(rfs->old_fs, group-1)+rfs->old_fs->inode_blocks_per_group-after_prev_itable, -1);
-	                printf("partial continuity, unmarking %llu blocks starting on itable %llu\n",
-	                                      ext2fs_inode_table_loc(rfs->old_fs, group-1)+rfs->old_fs->inode_blocks_per_group-after_prev_itable, after_prev_itable);
+	                itables_blocks_to_be_freed = ext2fs_inode_table_loc(rfs->old_fs, group-1)+rfs->old_fs->inode_blocks_per_group-after_prev_itable;
+	                if (ext2fs_has_feature_bigalloc(rfs->new_fs->super))
+	                      tweak_values_for_bigalloc(rfs, &after_prev_itable, &itables_blocks_to_be_freed);
+	                ext2fs_block_alloc_stats_range(rfs->new_fs, after_prev_itable, itables_blocks_to_be_freed, -1);
+	                printf("partial continuity, unmarking %u blocks starting on itable %llu\n", itables_blocks_to_be_freed, after_prev_itable);
 
 	                after_prev_itable = ext2fs_inode_table_loc(rfs->old_fs, group)+rfs->new_fs->inode_blocks_per_group;
 	            }
 	        }
 
-        	ext2fs_block_alloc_stats_range(rfs->new_fs, after_prev_itable,
-	                                                ext2fs_inode_table_loc(rfs->old_fs, group-1)+rfs->old_fs->inode_blocks_per_group-after_prev_itable, -1);
-	        printf("full continuity, unmarking %llu blocks starting on itable %llu\n",
-	                                      ext2fs_inode_table_loc(rfs->old_fs, group-1)+rfs->old_fs->inode_blocks_per_group-after_prev_itable, after_prev_itable);
+                itables_blocks_to_be_freed = ext2fs_inode_table_loc(rfs->old_fs, group-1)+rfs->old_fs->inode_blocks_per_group-after_prev_itable;
+                if (ext2fs_has_feature_bigalloc(rfs->new_fs->super))
+	                tweak_values_for_bigalloc(rfs, &after_prev_itable, &itables_blocks_to_be_freed);
+        	ext2fs_block_alloc_stats_range(rfs->new_fs, after_prev_itable, itables_blocks_to_be_freed, -1);
+	        printf("full continuity, unmarking %u blocks starting on itable %llu\n", itables_blocks_to_be_freed, after_prev_itable);
+
  
 	    }
 	} else { /*no flex_bg*/
-	        itables_blocks_to_be_freed = rfs->old_fs->inode_blocks_per_group - rfs->new_fs->inode_blocks_per_group;
 		for (group = 0; group < rfs->new_fs->group_desc_count; group++) {
-		    ext2fs_block_alloc_stats_range(rfs->new_fs,
-		                                    ext2fs_inode_table_loc(rfs->new_fs, group) + rfs->new_fs->inode_blocks_per_group,
-	                                            itables_blocks_to_be_freed,
-	                                            -1);
-	         
+		    itables_blocks_to_be_freed = rfs->old_fs->inode_blocks_per_group - rfs->new_fs->inode_blocks_per_group;
+		    after_prev_itable = ext2fs_inode_table_loc(rfs->new_fs, group) + rfs->new_fs->inode_blocks_per_group;
+		    if (ext2fs_has_feature_bigalloc(rfs->new_fs->super))
+	                      tweak_values_for_bigalloc(rfs, &after_prev_itable, &itables_blocks_to_be_freed);
+		    ext2fs_block_alloc_stats_range(rfs->new_fs, after_prev_itable, itables_blocks_to_be_freed, -1);
 	        }
 	}
 	
@@ -705,7 +707,7 @@ static errcode_t migrate_inodes_backwards_loop(ext2_resize_t rfs) {
 	            goto errout;
 
 	        if (inode->i_links_count != 0 || ino < EXT2_FIRST_INODE(rfs->new_fs->super)) {
-		      ext2fs_inode_alloc_stats2(rfs->new_fs, ino, +1, LINUX_S_ISDIR(inode->i_mode)!=0?1:0);
+		      ext2fs_inode_alloc_stats2(rfs->new_fs, ino, +1, LINUX_S_ISDIR(inode->i_mode));
 	        }
 
 	        /*if not in use, write the zeros from the inode to the itable anyway, as it may contain the previous inode*/
