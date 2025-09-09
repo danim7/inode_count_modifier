@@ -853,7 +853,7 @@ static errcode_t make_room_for_new_itables(ext2_resize_t rfs, itable_status *new
 	flexbg_size = 1U << fs->super->s_log_groups_per_flex;
 
 	for (g = 0; g < fs->group_desc_count; g++) {
-	    if (ext2fs_free_blocks_count(rfs->new_fs->super) - pledged_blocks < rfs->new_fs->inode_blocks_per_group) {
+	    if (ext2fs_free_blocks_count(rfs->new_fs->super) < rfs->new_fs->inode_blocks_per_group + pledged_blocks) {
 	        printf("breaking loop before running out of space, free: %llu, pledged: %llu, ipg: %u\n",
 	              ext2fs_free_blocks_count(rfs->new_fs->super), pledged_blocks, rfs->new_fs->inode_blocks_per_group);
 	        break; /*don't search if we are not going to find*/
@@ -941,7 +941,10 @@ search_for_space:
       So we will use it to mark blocks allocated by the resize2fs_get_alloc_block,
       and to avoid remapping those blocks in the update_block_reference.
       First of all, reset the whole bitmap*/
-      ext2fs_unmark_block_bitmap_range2(rfs->move_blocks, rfs->old_fs->super->s_first_data_block, ext2fs_blocks_count(rfs->old_fs->super));
+      ext2fs_free_block_bitmap(rfs->move_blocks);
+      retval = ext2fs_allocate_block_bitmap(fs, _("blocks already moved"), &rfs->move_blocks);
+      if (retval)
+		return retval;
 
       retval = inode_scan_and_fix(rfs, new_itable_status);
       if (retval) {
@@ -1004,6 +1007,8 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
         printf("old_fs->blocksize: %u\n", rfs->old_fs->blocksize);
         printf("old_fs->super->s_log_block_size: %u\n", rfs->old_fs->super->s_log_block_size);
         printf("old_fs->super->s_inodes_count: %u\n", rfs->old_fs->super->s_inodes_count);
+        printf("rfs->old_fs->super->s_first_data_block: %u\n", rfs->old_fs->super->s_first_data_block);
+        printf("ext2fs_group_first_block2(fs, 0): %llu\n",  ext2fs_group_first_block2(rfs->old_fs, 0));
         printf("\n\n");
         printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
         printf("new_fs->super->s_inodes_per_group: %u\n", rfs->new_fs->super->s_inodes_per_group);
@@ -1053,8 +1058,8 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
 
 	      for (group = 0; group < rfs->new_fs->group_desc_count; group++) {
 	          itable_start = ext2fs_inode_table_loc(rfs->old_fs, group);
-	          itables_blocks_to_be_freed = rfs->old_fs->inode_blocks_per_group;
 	          if (itable_start != 0 && evacuated_inodes[group] == rfs->old_fs->super->s_inodes_per_group) {
+	          	  itables_blocks_to_be_freed = rfs->old_fs->inode_blocks_per_group;
 	                  if (ext2fs_has_feature_bigalloc(rfs->new_fs->super)) {
 	                        tweak_values_for_bigalloc(rfs, &itable_start, &itables_blocks_to_be_freed);
 	                  }

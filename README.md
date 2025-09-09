@@ -96,7 +96,6 @@ Inode size:	          256
 
 # TODO
 
-- support blocksizes different than 4096, other non-standard mkfs features...
 - test huge fs
 - calculate minimum necessary size to perform a safe increase of inode tables
 - performance: move itable blocks instead of inodes one by one, first check buffering done by io_ functions. Check reading and writing for same block and different fs

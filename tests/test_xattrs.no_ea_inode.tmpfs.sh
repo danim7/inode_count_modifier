@@ -137,4 +137,6 @@ else
  echo "rhash test NOT ok"
  exit -2
 fi
+sudo umount ${mount_dir}
+sudo umount /tmp/${script_name}_tmpfs
 

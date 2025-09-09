@@ -41,6 +41,7 @@
 
 static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned int new_inodes_per_group);
 
+
 errcode_t reduce_inode_count(ext2_filsys fs, int flags,
 	    errcode_t (*progress)(ext2_resize_t rfs, int pass,
 					  unsigned long cur,
@@ -291,14 +292,6 @@ static int check_and_change_inodes(ext2_ino_t dir,
 	errcode_t		retval;
 	int			ret = 0;
 
-	if (is->rfs->progress && offset == 0) {
-		io_channel_flush(is->rfs->new_fs->io);
-		is->err = (is->rfs->progress)(is->rfs,
-					      E2_RSZ_INODE_REF_UPD_PASS,
-					      ++is->num, is->max_dirs);
-		if (is->err)
-			return DIRENT_ABORT;
-	}
 
 	/*
 	 * If we have checksums enabled and the inode wasn't present in the
@@ -325,16 +318,18 @@ static int check_and_change_inodes(ext2_ino_t dir,
 	dirent->inode = new_inode;
 
 	/* Update the directory mtime and ctime */
-	retval = ext2fs_read_inode(is->rfs->new_fs, dir, &inode);
-	//printf(" ext2fs_read_inode %u, i_size_lo: %u, i_blocks: %u, retval %li\n", dir, inode.i_size, inode.i_blocks, retval);
+	retval = ext2fs_read_inode(is->rfs->old_fs, dir, &inode);
+	/*printf(" ext2fs_read_inode %u, i_size_lo: %u, i_blocks: %u, retval %li, sizeof(struct ext2_inode) %lu\n", dir, inode.i_size, inode.i_blocks, retval, sizeof(struct ext2_inode));*/
 
 	if (retval == 0) {
 		inode.i_mtime = inode.i_ctime = is->rfs->new_fs->now ?
 			is->rfs->new_fs->now : time(0);
-		is->err = ext2fs_write_inode(is->rfs->new_fs, dir, &inode);
+		is->err = ext2fs_write_inode(is->rfs->old_fs, dir, &inode);
 		//printf(" ext2fs_write_inode retval %li\n", is->err);
-		if (is->err)
+		if (is->err) {
+		        printf("return ret | DIRENT_ABORT\n");
 			return ret | DIRENT_ABORT;
+		}
 	}
 
 	return ret | DIRENT_CHANGED;
@@ -510,10 +505,10 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 			goto errout;
 		pb.changed = 0;
 
-#ifdef RESIZE2FS_DEBUG
-		if (rfs->flags & RESIZE_DEBUG_INODEMAP)
+/*#ifdef RESIZE2FS_DEBUG
+		if (rfs->flags & RESIZE_DEBUG_INODEMAP)*/
 			printf("Inode moved %u->%u\n", ino, new_inode);
-#endif
+/*#endif*/
 		if (!rfs->imap) {
 			retval = ext2fs_create_extent_table(&rfs->imap, 0);
 			if (retval)

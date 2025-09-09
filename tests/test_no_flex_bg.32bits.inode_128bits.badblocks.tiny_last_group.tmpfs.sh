@@ -98,4 +98,5 @@ else
  exit -2
 fi
 sudo umount $image_file
+sudo umount /tmp/${script_name}_tmpfs
 

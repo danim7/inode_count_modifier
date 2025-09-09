@@ -15,7 +15,7 @@ mount_dir=/tmp/${script_name}_mounted
 
 mkdir ${mount_dir} /tmp/${script_name}_tmpfs
 sudo umount ${mount_dir} 
-sudo umount /tmp/${script_name}_tmpfs 
+sudo umount /tmp/${script_name}_tmpfs
 sudo mount -t tmpfs -o size=1536m none /tmp/${script_name}_tmpfs/
 fallocate -l 1536m $image_file
 mkfs.ext4 -m 0 -E root_owner=`id -u`:`id -g` $image_file
@@ -129,4 +129,6 @@ else
  exit -2
 fi
 sudo umount ${mount_dir}
+sudo umount /tmp/${script_name}_tmpfs
+
 

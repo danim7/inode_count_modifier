@@ -16,7 +16,7 @@ mount_dir=/tmp/${script_name}_mounted
 
 mkdir ${mount_dir} /tmp/${script_name}_tmpfs
 sudo umount ${mount_dir} 
-sudo umount /tmp/${script_name}_tmpfs 
+sudo umount /tmp/${script_name}_tmpfs
 sudo mount -t tmpfs -o size=3136m none /tmp/${script_name}_tmpfs/
 
 
@@ -259,4 +259,5 @@ else
  exit -2
 fi
 sudo umount ${mount_dir}
+sudo umount /tmp/${script_name}_tmpfs
 
