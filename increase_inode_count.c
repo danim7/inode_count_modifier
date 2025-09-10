@@ -999,29 +999,8 @@ static errcode_t inode_relocation_to_bigger_tables(ext2_resize_t rfs, unsigned i
         rfs->new_fs->inode_blocks_per_group = ext2fs_div_ceil(rfs->new_fs->super->s_inodes_per_group * rfs->new_fs->super->s_inode_size, rfs->new_fs->blocksize);
         rfs->new_fs->super->s_inodes_count = rfs->new_fs->group_desc_count * rfs->new_fs->super->s_inodes_per_group;
 
+        display_info(rfs);
 
-        printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
-        printf("old_fs->super->s_inodes_per_group: %u\n", rfs->old_fs->super->s_inodes_per_group);
-        printf("old_fs->super->s_inode_size: %u\n", rfs->old_fs->super->s_inode_size);
-        printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
-        printf("old_fs->blocksize: %u\n", rfs->old_fs->blocksize);
-        printf("old_fs->super->s_log_block_size: %u\n", rfs->old_fs->super->s_log_block_size);
-        printf("old_fs->super->s_inodes_count: %u\n", rfs->old_fs->super->s_inodes_count);
-        printf("rfs->old_fs->super->s_first_data_block: %u\n", rfs->old_fs->super->s_first_data_block);
-        printf("ext2fs_group_first_block2(fs, 0): %llu\n",  ext2fs_group_first_block2(rfs->old_fs, 0));
-        printf("\n\n");
-        printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
-        printf("new_fs->super->s_inodes_per_group: %u\n", rfs->new_fs->super->s_inodes_per_group);
-        printf("new_fs->super->s_inode_size: %u\n", rfs->new_fs->super->s_inode_size);
-        printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
-        printf("new_fs->blocksize: %u\n", rfs->new_fs->blocksize);
-        printf("new_fs->super->s_log_block_size: %u\n", rfs->new_fs->super->s_log_block_size);
-        printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
-        printf("EXT2_FIRST_INODE(new_fs->super): %u\n", EXT2_FIRST_INODE(rfs->new_fs->super));
-        printf("new_fs->super->s_log_groups_per_flex: %u\n", rfs->new_fs->super->s_log_groups_per_flex);
-        printf("new_fs->super->s_log_cluster_size: %u\n", rfs->new_fs->super->s_log_cluster_size);
-        printf("new_fs->cluster_ratio_bits: %u\n", rfs->new_fs->cluster_ratio_bits);
-        
         retval = ext2fs_resize_inode_bitmap2(rfs->new_fs->super->s_inodes_count, rfs->new_fs->super->s_inodes_count, rfs->new_fs->inode_map);
         if (retval) {
             printf("error %li when calling ext2fs_resize_inode_bitmap2()\n", retval);

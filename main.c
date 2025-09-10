@@ -325,22 +325,6 @@ static int calculate_new_inodes_per_group(ext2_filsys fs, int type_of_value, lon
               max_itables_per_group = blocksize*8*EXT2_INODE_SIZE(fs->super)/blocksize;
   double itables_per_group_d;
   blk64_t free_space, current_itables_space, new_itables_space, safe_margin;
-  
-  if (type_of_value == 0) {
-    if (value < EXT2_FIRST_INODE(fs->super)+1) {
-        printf("The requested inode count is too low. Minimum is %u\n\n", EXT2_FIRST_INODE(fs->super)+1);
-        exit(1);
-    }
-    if (value > 0xffffffff) {
-        printf("The requested inode count is too high. Maximum is %u\n\n", 0xffffffff);
-        exit(1);
-    }
-    inode_ratio = ext2fs_blocks_count(fs->super)*blocksize/value;
-    printf("Inode count requested by the user: %llu\n\n", value);
-  } else {
-    inode_ratio = value;
-    printf("Inode ratio requested by the user: %i bytes-per-inode\n\n", inode_ratio);
-  }
 
   printf("Current inode tables per group: %u\n", fs->inode_blocks_per_group);
   printf("Current inode count: %u\n", fs->super->s_inodes_count);
@@ -368,15 +352,31 @@ static int calculate_new_inodes_per_group(ext2_filsys fs, int type_of_value, lon
   }
   printf("\n");
 
-  new_inodes_per_group = ext2fs_div64_ceil(
-                                          ext2fs_div64_ceil(ext2fs_blocks_count(fs->super)*blocksize, inode_ratio),
-                                          fs->group_desc_count);
 
-  itables_per_group_d = //((double)EXT2_INODE_SIZE(fs->super)*new_inodes_per_group)/blocksize;
-  //ext2fs_blocks_count(fs->super)*blocksize/inode_ratio/fs->group_desc_count*EXT2_INODE_SIZE(fs->super)/blocksize;
-  (double)ext2fs_blocks_count(fs->super)/inode_ratio/fs->group_desc_count*EXT2_INODE_SIZE(fs->super);
-  printf("New inode tables per group (based on inode ratio, before rounding): %f\n", itables_per_group_d);
+  if (type_of_value == 0) {
+    if (value < EXT2_FIRST_INODE(fs->super)+1) {
+        printf("The requested inode count is too low. Minimum is %u\n\n", EXT2_FIRST_INODE(fs->super)+1);
+        exit(1);
+    }
+    if (value > 0xffffffff) {
+        printf("The requested inode count is too high. Maximum is %u\n\n", 0xffffffff);
+        exit(1);
+    }
+    /*inode_ratio = ext2fs_blocks_count(fs->super)*blocksize/value;*/
+    printf("Inode count requested by the user: %llu\n\n", value);
+    new_inodes_per_group = ext2fs_div64_ceil(value, fs->group_desc_count);
+  } else {
+    inode_ratio = value;
+    printf("Inode ratio requested by the user: %i bytes-per-inode\n\n", inode_ratio);
+    new_inodes_per_group = ext2fs_div64_ceil(
+                                        ext2fs_div64_ceil(ext2fs_blocks_count(fs->super)*blocksize, inode_ratio),
+                                        fs->group_desc_count);
 
+    itables_per_group_d = //((double)EXT2_INODE_SIZE(fs->super)*new_inodes_per_group)/blocksize;
+    //ext2fs_blocks_count(fs->super)*blocksize/inode_ratio/fs->group_desc_count*EXT2_INODE_SIZE(fs->super)/blocksize;
+    (double)ext2fs_blocks_count(fs->super)/inode_ratio/fs->group_desc_count*EXT2_INODE_SIZE(fs->super);
+    printf("New inode tables per group (based on inode ratio, before rounding): %f\n", itables_per_group_d);
+  }
 
   /*
    * Finally, make sure the number of inodes per group is a
@@ -396,12 +396,29 @@ static int calculate_new_inodes_per_group(ext2_filsys fs, int type_of_value, lon
 			         blocksize - 1) /
 			        blocksize);
 
+  if (ext2fs_has_feature_bigalloc(fs->super)
+      && itables_per_group_rounded > fs->inode_blocks_per_group
+      && itables_per_group_rounded % EXT2FS_CLUSTER_RATIO(fs)) {
 
-  printf("New inode tables per group (after rounding to fill last itable block): %u\n", itables_per_group_rounded);
+    /*The increaser will allocate different clusters to each inode table, they cannot be shared among different itables.
+    Therefore, make sure the whole cluster is used, otherwise, the remaining blocks would be wasted.
+    Ideally, we could optimize by trying to allocate contiguous blocks and compact itables so they share the same cluster...*/
 
-  if (itables_per_group_rounded < 1) {
-    printf("  itables_per_group was %u, forced to 1\n", itables_per_group_rounded);
-    itables_per_group_rounded = 1;
+          itables_per_group_rounded += EXT2FS_CLUSTER_RATIO(fs) - (itables_per_group_rounded % EXT2FS_CLUSTER_RATIO(fs));
+          printf("New inode tables per group (after rounding to fill last itable cluster): %u\n", itables_per_group_rounded);
+
+  } else {
+    printf("New inode tables per group (after rounding to fill last itable block): %u\n", itables_per_group_rounded);
+  }
+
+  if (itables_per_group_rounded < EXT2FS_CLUSTER_RATIO(fs)) {
+      if (ext2fs_has_feature_bigalloc(fs->super) && itables_per_group_rounded > fs->inode_blocks_per_group) {
+          printf("  itables_per_group was %u, forced to %i\n", itables_per_group_rounded, EXT2FS_CLUSTER_RATIO(fs));
+          itables_per_group_rounded = EXT2FS_CLUSTER_RATIO(fs);
+      } else if (itables_per_group_rounded < 1) {
+          printf("  itables_per_group was %u, forced to 1\n", itables_per_group_rounded);
+          itables_per_group_rounded = 1;
+      }
   } else {
     if (itables_per_group_rounded > max_itables_per_group) {
        printf("  itables_per_group was %u, forced to %u as the remaining inodes would not be addressable in the inode bitmap\n",
@@ -447,7 +464,9 @@ static int calculate_new_inodes_per_group(ext2_filsys fs, int type_of_value, lon
 
 
   if (required_inodes > new_inode_count) {
-        printf("The chosen inode-ratio will not provide enough inodes for the existing filesystem, choose a lower bytes-per-inode ratio!\n");
+        printf("The chosen %s will not provide enough inodes for the existing filesystem, please choose a %s\n",
+              type_of_value==1?"inode-ratio":"inode count",
+              type_of_value==1?"lower bytes-per-inode ratio!":"higher inode count!");
         exit(1);
   }
         

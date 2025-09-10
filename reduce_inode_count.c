@@ -20,7 +20,7 @@
  * Reducing the inode count consists of the following phases:
  *
  *      1.  Calculate the new maximum inode number
- *	2.  Move the inodes in use above that number to lower numbers
+ *      2.  Move the inodes in use above that number to lower numbers
  *          2.a. For those inodes, update the references in folders entries
  *      3.  Reset stats for groups in new fs
  *      4.  Migrate all the inodes to the new reduced inodes tables
@@ -737,25 +737,8 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 	rfs->new_fs->super->s_inodes_per_group = new_inodes_per_group;
 	rfs->new_fs->inode_blocks_per_group = ext2fs_div_ceil(rfs->new_fs->super->s_inodes_per_group * rfs->new_fs->super->s_inode_size, rfs->new_fs->blocksize);
 	rfs->new_fs->super->s_inodes_count = rfs->new_fs->group_desc_count * rfs->new_fs->super->s_inodes_per_group;
-	
 
-	printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
-	printf("old_fs->super->s_inodes_per_group: %u\n", rfs->old_fs->super->s_inodes_per_group);
-	printf("old_fs->super->s_inode_size: %u\n", rfs->old_fs->super->s_inode_size);
-	printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
-	printf("old_fs->blocksize: %u\n", rfs->old_fs->blocksize);
-	printf("old_fs->super->s_log_block_size: %u\n", rfs->old_fs->super->s_log_block_size);
-	printf("old_fs->super->s_inodes_count: %u\n", rfs->old_fs->super->s_inodes_count);
-	printf("\n\n");
-	printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
-	printf("new_fs->super->s_inodes_per_group: %u\n", rfs->new_fs->super->s_inodes_per_group);
-	printf("new_fs->super->s_inode_size: %u\n", rfs->new_fs->super->s_inode_size);
-	printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
-	printf("new_fs->blocksize: %u\n", rfs->new_fs->blocksize);
-	printf("new_fs->super->s_log_block_size: %u\n", rfs->new_fs->super->s_log_block_size);
-	printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
-	printf("new_fs->group_desc_count: %u\n", rfs->new_fs->group_desc_count);
-
+        display_info(rfs);
 
 	printf("calling inode_scan_and_fix()\n");
 	retval = inode_scan_and_fix(rfs);

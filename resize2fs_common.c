@@ -74,7 +74,7 @@ errcode_t mark_table_blocks(ext2_filsys fs,
 
 /*The function ext2fs_block_alloc_stats_range() doesn't work very well on bigalloc filesystems if we pass to it
 unaligned blocks or uneven lengths, which may be the case with itables.
-This function will modify the input values to compensate for those issues before calling the other funcion.
+This function will modify the input values to compensate for those issues before calling ext2fs_block_alloc_stats_range()
 We assume any other metadata (blockmaps, inodemaps, etc...) is always placed before inode tables if they share the same cluster
 (which is how mkfs creates the filesystems), so we avoid to free the cluster if the itable doesn't own its first block*/
 errcode_t tweak_values_for_bigalloc(ext2_resize_t rfs, blk64_t *first_block, unsigned int *num_blocks) {
@@ -113,3 +113,28 @@ errcode_t tweak_values_for_bigalloc(ext2_resize_t rfs, blk64_t *first_block, uns
 
 }
 
+
+void display_info(ext2_resize_t rfs) {
+
+        printf("old_fs->inode_blocks_per_group: %u\n", rfs->old_fs->inode_blocks_per_group);
+        printf("old_fs->super->s_inodes_per_group: %u\n", rfs->old_fs->super->s_inodes_per_group);
+        printf("old_fs->super->s_inode_size: %u\n", rfs->old_fs->super->s_inode_size);
+        printf("old_fs->blocksize: %u\n", rfs->old_fs->blocksize);
+        printf("old_fs->super->s_log_block_size: %u\n", rfs->old_fs->super->s_log_block_size);
+        printf("old_fs->super->s_inodes_count: %u\n", rfs->old_fs->super->s_inodes_count);
+        printf("rfs->old_fs->super->s_first_data_block: %u\n", rfs->old_fs->super->s_first_data_block);
+        printf("ext2fs_group_first_block2(fs, 0): %llu\n",  ext2fs_group_first_block2(rfs->old_fs, 0));
+        printf("\n\n");
+        printf("new_fs->inode_blocks_per_group: %u\n", rfs->new_fs->inode_blocks_per_group);
+        printf("new_fs->super->s_inodes_per_group: %u\n", rfs->new_fs->super->s_inodes_per_group);
+        printf("new_fs->super->s_inode_size: %u\n", rfs->new_fs->super->s_inode_size);
+        printf("new_fs->blocksize: %u\n", rfs->new_fs->blocksize);
+        printf("new_fs->super->s_log_block_size: %u\n", rfs->new_fs->super->s_log_block_size);
+        printf("new_fs->super->s_inodes_count: %u\n", rfs->new_fs->super->s_inodes_count);
+        printf("new_fs->group_desc_count: %u\n", rfs->new_fs->group_desc_count);
+        printf("EXT2_FIRST_INODE(new_fs->super): %u\n", EXT2_FIRST_INODE(rfs->new_fs->super));
+        printf("new_fs->super->s_log_groups_per_flex: %u\n", rfs->new_fs->super->s_log_groups_per_flex);
+        printf("new_fs->super->s_log_cluster_size: %u\n", rfs->new_fs->super->s_log_cluster_size);
+        printf("new_fs->cluster_ratio_bits: %u\n", rfs->new_fs->cluster_ratio_bits);
+
+}

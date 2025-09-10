@@ -78,7 +78,6 @@ HASH_A=`sha1sum ${mount_dir}/single_file | cut -f1 -d" "`
 sudo umount  ${mount_dir}
 e2fsck -vf $image_file 
 
-#TODO: the following test actually creates more inodes than needed/requested because of a rounding problem
 echo "launch test 3"
 $path_to_bin -f -c 576 $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 echo "end test 3"

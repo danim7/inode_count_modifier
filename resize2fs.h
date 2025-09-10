@@ -208,6 +208,7 @@ struct process_block_struct {
 };
 errcode_t mark_table_blocks(ext2_filsys fs, ext2fs_block_bitmap bmap);
 errcode_t tweak_values_for_bigalloc(ext2_resize_t rfs, blk64_t *first_block, unsigned int *num_blocks);
+void display_info(ext2_resize_t rfs);
 
 
 /* Some bigalloc helper macros which are more succinct... */

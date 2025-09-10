@@ -1,5 +1,7 @@
 #!/bin/bash
 
+LANG=C
+
 if [ "$#" -ne 2 ]; then
     echo "Need two parameters: [full path of the binary to be tested] [full path to folder with test scripts]"
     echo "Example:"
