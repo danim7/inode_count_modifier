@@ -20,6 +20,7 @@ time ./test_bigalloc_single_file.sh $1 || { echo 'test_bigalloc_single_file fail
 time ./test_tiny_last_group.sh $1 || { echo 'test_tiny_last_group failed' ; exit 1; }
 time ./test_wrong_free_inode_count.sh $1 || { echo 'test_wrong_free_inode_count failed' ; exit 1; }
 time ./test_xattrs_ea_inode.sh $1 || { echo 'test_xattrs_ea_inode failed' ; exit 1; }
+time ./test_meta_bg.sh $1 || { echo 'test_meta_bg failed' ; exit 1; }
 time ./test_fs_70gb.sh $1 || { echo 'test_fs_70gb failed' ; exit 1; }
 
 

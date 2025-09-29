@@ -136,5 +136,7 @@ void display_info(ext2_resize_t rfs) {
         printf("new_fs->super->s_log_groups_per_flex: %u\n", rfs->new_fs->super->s_log_groups_per_flex);
         printf("new_fs->super->s_log_cluster_size: %u\n", rfs->new_fs->super->s_log_cluster_size);
         printf("new_fs->cluster_ratio_bits: %u\n", rfs->new_fs->cluster_ratio_bits);
+        printf("new_fs->super->s_first_meta_bg: %u\n", rfs->new_fs->super->s_first_meta_bg);
+        printf("EXT2_DESC_PER_BLOCK(fs->super): %u\n", EXT2_DESC_PER_BLOCK(rfs->new_fs->super));
 
 }

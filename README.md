@@ -98,8 +98,7 @@ Inode size:	          256
 
 - test huge fs
 - calculate minimum necessary size to perform a safe increase of inode tables
-- performance: move itable blocks instead of inodes one by one, first check buffering done by io_ functions. Check reading and writing for same block and different fs
-- is there any impact in the "resize_inode"? it shall not, because ext2fs_reserve_super_and_bgd() also marks the reserved GDT blocks (except for meta_bg)
+- performance: move itable blocks instead of inodes one by one, first check buffering done by io_ functions. This will ignore inode checksums. Check reading and writing for same block and different fs
 - improve the build system: "configure, make, etc..." + static build
 - build a fancy progress display with rfs->progress
 
