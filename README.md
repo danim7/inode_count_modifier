@@ -40,11 +40,23 @@ This will create filesystems with the following characteristics:
 
 # Compilation
 
-Prerequisites: other than standard development packages (gcc, make, etc..), the `libext2fs-dev` package is required to compile it.   
+In Ubuntu, the standard development packages (gcc, make, autotools, etc..) are required.  
+Also, the `libext2fs-dev` package is required to compile the program.   
 
 <pre>
+sudo apt install libext2fs-dev
+</pre>
+
+Then, the program can be compiled as follows:  
+<pre>
+autoreconf -fi
 ./configure
 make
+</pre>
+
+For a static build, use the following flag in ./configure command:  
+<pre>
+./configure LDFLAGS=-static
 </pre>
 
 # Usage
@@ -99,6 +111,5 @@ Inode size:	          256
 - test huge fs
 - calculate minimum necessary size to perform a safe increase of inode tables
 - performance: move itable blocks instead of inodes one by one, first check buffering done by io_ functions. This will ignore inode checksums. Check reading and writing for same block and different fs
-- improve the build system: "configure, make, etc..." + static build
 - build a fancy progress display with rfs->progress
 

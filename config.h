@@ -4,14 +4,17 @@
 /* Define to 1 if you have the <fcntl.h> header file. */
 #define HAVE_FCNTL_H 1
 
-/* Define to 1 if you have the `ftruncate' function. */
-#define HAVE_FTRUNCATE 1
-
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
+
+/* Define to 1 if you have the `com_err' library (-lcom_err). */
+#define HAVE_LIBCOM_ERR 1
+
+/* Define to 1 if you have the `ext2fs' library (-lext2fs). */
+#define HAVE_LIBEXT2FS 1
 
 /* Define to 1 if you have the <libintl.h> header file. */
 #define HAVE_LIBINTL_H 1
@@ -50,12 +53,6 @@
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
-/* Define to 1 if you have the `strtol' function. */
-#define HAVE_STRTOL 1
-
-/* Define to 1 if you have the `strtoul' function. */
-#define HAVE_STRTOUL 1
-
 /* Define to 1 if you have the `strtoull' function. */
 #define HAVE_STRTOULL 1
 
@@ -75,25 +72,25 @@
 #define HAVE_UNISTD_H 1
 
 /* Name of package */
-#define PACKAGE "full-package-name"
+#define PACKAGE "inode_count_modifier"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "BUG-REPORT-ADDRESS"
+#define PACKAGE_BUGREPORT "https://github.com/danim7/inode_count_modifier"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "FULL-PACKAGE-NAME"
+#define PACKAGE_NAME "inode_count_modifier"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "FULL-PACKAGE-NAME VERSION"
+#define PACKAGE_STRING "inode_count_modifier 0.1"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "full-package-name"
+#define PACKAGE_TARNAME "inode_count_modifier"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "VERSION"
+#define PACKAGE_VERSION "0.1"
 
 /* Define to 1 if all of the C90 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for
@@ -101,7 +98,7 @@
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "VERSION"
+#define VERSION "0.1"
 
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
@@ -111,6 +108,3 @@
 
 /* Define to rpl_malloc if the replacement function should be used. */
 /* #undef malloc */
-
-/* Define to `long int' if <sys/types.h> does not define. */
-/* #undef off_t */
