@@ -694,11 +694,13 @@ static errcode_t migrate_inodes_backwards_loop(ext2_resize_t rfs) {
 
 	for (ino = rfs->new_fs->super->s_inodes_count; ino>0; ino--) {
 	
-	        retval = ext2fs_read_inode_full(rfs->old_fs, ino, inode, inode_size);
+	        retval = ext2fs_read_inode2(rfs->old_fs, ino, inode, inode_size, 0); /*we might use READ_INODE_NOCSUM instead of checking retval*/
 	        printf("Migrating inode %u to new itable: links_count: %u, i_size_lo: %u, i_blocks: %u, old group: %u, new group: %u, read_retval: %li",
 	                      ino, inode->i_links_count, inode->i_size, inode->i_blocks,
 	                      ext2fs_group_of_ino(rfs->old_fs, ino), ext2fs_group_of_ino(rfs->new_fs, ino), retval);
-	        if (retval)
+	        /*we require to run fsck before changing the inode count, and that will fix inode checksums on used inodes. However, an unused inode with a wrong
+	        checksum will not be detected by fsck. We don't want to stop the whole process now and leave a messy fs because of that, just log it and continue*/
+	        if (retval && retval != EXT2_ET_INODE_CSUM_INVALID)
 	            goto errout;
 
 	        if (inode->i_links_count != 0 || ino < EXT2_FIRST_INODE(rfs->new_fs->super)) {
@@ -706,7 +708,7 @@ static errcode_t migrate_inodes_backwards_loop(ext2_resize_t rfs) {
 	        }
 
 	        /*if not in use, write the zeros from the inode to the itable anyway, as it may contain the previous inode*/
-	        retval = ext2fs_write_inode_full(rfs->new_fs, ino, inode, inode_size);
+	        retval = ext2fs_write_inode2(rfs->new_fs, ino, inode, inode_size, 0);
 	        printf(" - write_retval: %li\n", retval);
 	        if (retval)
 	                goto errout;
