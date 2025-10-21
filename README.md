@@ -110,6 +110,5 @@ Inode size:	          256
 
 - test huge fs
 - calculate minimum necessary size to perform a safe increase of inode tables
-- performance: move itable blocks instead of inodes one by one, first check buffering done by io_ functions. This will ignore inode checksums. Check reading and writing for same block and different fs
 - build a fancy progress display with rfs->progress
 
