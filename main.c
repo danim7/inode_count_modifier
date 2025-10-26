@@ -242,6 +242,19 @@ static int check_space_last_group(ext2_filsys fs, unsigned int inode_blocks_per_
 	return 0;
 }
 
+static ext2_ino_t find_last_used_inode(ext2_filsys fs)
+{
+	ext2_ino_t ino_num = fs->super->s_inodes_count;
+	if (ext2fs_read_inode_bitmap(fs)) {
+		printf("Error while reading inode bitmap in find_last_used_inode()\n");
+		exit(-1);
+	}
+	while (ino_num && !ext2fs_test_inode_bitmap2(fs->inode_map, ino_num))
+		ino_num--;
+	return ino_num;
+}
+
+
 /*
 it shall replicate what is done in ext2fs_initialize(), with some extra checks
 on having at least enough inodes for what the fs already has
@@ -443,6 +456,7 @@ int main(int argc, char **argv)
 	unsigned long long int new_inode_value;
 	const char *ext2fs_version, *ext2fs_date;
 	int version_int;
+	ext2_ino_t last_used_inode;
 
 #ifdef ENABLE_NLS
 	setlocale(LC_MESSAGES, "");
@@ -646,15 +660,21 @@ int main(int argc, char **argv)
 					printf("Increasing inode count in a filesystem with stable_inodes, because the force flag is set\n");
 				} else {
 					printf("Asked to increase the inode count in a filesystem with stable_inodes feature flag.\n"
-						"Please note it will not be possible to reduce the inode count later because of this flag.\n"
+						"Please note it might not be possible to reduce the inode count later because of this flag.\n"
 						"Restart with force parameter to proceed\n");
 					goto errout;
 				}
 			} else {
-				/*TODO: check if the new inode_count is >= the max inode number in use in the old_fs:
-				   in that case, it should be possible to reduce the inode count */
-				printf("Cannot reduce indode count in this filesystem because it has the stable_inodes feature flag.\n");
-				goto errout;
+				last_used_inode = find_last_used_inode(fs);
+				if (new_inodes_per_group * fs->group_desc_count < last_used_inode) {
+					printf("Cannot reduce inode count in this filesystem because it has the stable_inodes feature flag and \n"
+						"the used inode with the highest number is %u, while the resulting filesystem would have %u inodes.\n",
+						last_used_inode, new_inodes_per_group * fs->group_desc_count);
+					goto errout;
+				}
+				printf("Reducing inode count in filesystem with stable_inodes feature flag.\n"
+					"The used inode with the highest number is %u. The resulting filesystem will have %u inodes.\n",
+					last_used_inode, new_inodes_per_group * fs->group_desc_count);
 			}
 		}
 
