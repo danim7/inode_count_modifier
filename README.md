@@ -31,6 +31,7 @@ The steps 3-5 can be repeated multiple times with a different parameter for inod
 
 The data used to feed a filesystem is created by each test script, except for "test_fs_70gb.sh" which uses a sample of real-world files (totalling 117589 inodes and 64GiB).  
 
+If you use this tool, please don't hesitate to provide any feedback (whether it's positive or negative).  
 
 # Use cases
 
