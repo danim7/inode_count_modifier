@@ -1,6 +1,6 @@
 # Introduction
 
-This tool provides a way to change the bytes/inode ratio of an existing ext4 filesystem, thus increasing or decreasing the inode count. Previously, this parameter was chosen at filesystem creation time and could not be modified afterwards. Now it is possible to trade inodes for free space, and vice versa.  
+This tool provides a way to change the bytes-per-inode ratio of an existing ext4 filesystem, thus increasing or decreasing the inode count. Previously, this parameter was chosen at filesystem creation time and could not be modified afterwards. Now it is possible to trade inodes for free space, and vice versa.  
 
 Originally, it was largely based on the source code of "resize2fs" from e2fsprogs v1.47.2.  
 
@@ -37,11 +37,11 @@ If you use this tool, please don't hesitate to provide any feedback (whether it'
 
 There are two options:  
 
-- Reducing the bytes/inode ratio will increase the inode count of a filesystem:  
+- Reducing the bytes-per-inode ratio will increase the inode count of a filesystem:  
   This could be useful when getting a "no space" error because of running out of free inodes. If a wrong ratio/count was chosen during filesystem creation, the user will hit this error, even if there is still plenty of free space on the partition.  
   Please note that some free space (in blocks) is needed to increase the inode count, as it is necessary to grow the inode tables to allocate them.  
 
-- Increasing the bytes/inode ratio will reduce the inode count of a filesystem:  
+- Increasing the bytes-per-inode ratio will reduce the inode count of a filesystem:  
   This could be useful to get some extra free space for data, by reducing the space used for inode tables.  
   The default inode ratio of 16KiB could waste space by creating much more inodes than necessary for the user (specially on secondary drives used to store big files instead of the operating system root).  
   
@@ -130,6 +130,6 @@ Inode size:	          256
 # TODO
 
 - test huge fs
-- calculate minimum necessary size to perform a safe increase of inode tables
+- calculate minimum necessary size to perform a safe increase of inode tables (now using 2x new inode tables space to trigger the alert, which shall be much more than the actual requirement)
 - build a fancy progress display with rfs->progress
 

@@ -50,7 +50,7 @@ static void usage(char *prog)
 	   "[-p] device [-b|-s|new_size] [-S RAID-stride] "
 	   "[-z undo_file]\n\n"),
 	   prog ? prog : "resize2fs"); */
-	fprintf(stderr, _("Usage: %s [-f] -c|-r new_value device \n\n"), prog ? prog : "inode_count_modifier");
+	fprintf(stderr, _("Usage: %s [-f] [-F] [-z undo_file] -c|-r new_value device \n\n"), prog ? prog : "inode_count_modifier");
 
 	exit(1);
 }
@@ -148,12 +148,12 @@ static int resize2fs_setup_tdb(const char *device, char *undo_file, io_manager *
 	if (!tmp_name)
 		goto errout;
 	dev_name = basename(tmp_name);
-	tdb_file = malloc(strlen(tdb_dir) + 11 + strlen(dev_name) + 7 + 1);
+	tdb_file = malloc(strlen(tdb_dir) + 22 + strlen(dev_name) + 7 + 1);
 	if (!tdb_file) {
 		free(tmp_name);
 		goto errout;
 	}
-	sprintf(tdb_file, "%s/resize2fs-%s.e2undo", tdb_dir, dev_name);
+	sprintf(tdb_file, "%s/inode_count_modifier-%s.e2undo", tdb_dir, dev_name);
 	free(tmp_name);
 
 	if ((unlink(tdb_file) < 0) && (errno != ENOENT)) {
@@ -487,12 +487,12 @@ int main(int argc, char **argv)
 		case 'F':
 			flush = 1;
 			break;
-		case 'd':
+		/*case 'd':
 			flags |= atoi(optarg);
 			break;
 		case 'p':
 			flags |= RESIZE_PERCENT_COMPLETE;
-			break;
+			break;*/
 		case 'z':
 			undo_file = optarg;
 			break;
