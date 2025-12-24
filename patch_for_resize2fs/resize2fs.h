@@ -103,6 +103,12 @@ struct resource_track {
 	unsigned long long bytes_written;
 };
 
+typedef enum {
+	itable_status_not_allocated = 0,	/*must be zero for calloc() */
+	itable_status_allocated = 1,
+	itable_status_filled = 2
+} itable_status;
+
 /*
  * The core state structure for the ext2 resizer
  */
@@ -118,6 +124,14 @@ struct ext2_resize_struct {
 	blk64_t		needed_blocks;
 	int		flags;
 	char		*itable_buf;
+	
+	/*
+	 * Specific fields to change inode count
+	 */
+	unsigned int    new_inodes_per_group;
+	unsigned int    *evacuated_inodes;
+	itable_status   *new_itable_status;
+	dgrp_t          allocated_new_itables;
 
 	/*
 	 * For the block allocator
