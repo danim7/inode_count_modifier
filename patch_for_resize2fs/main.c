@@ -937,6 +937,12 @@ int main (int argc, char ** argv)
 			goto success_exit;
 		}
 	}
+	if (flags & (RESIZE_INCREASE_INODE_COUNT | RESIZE_DECREASE_INODE_COUNT) &&
+	    flags & (RESIZE_ENABLE_64BIT | RESIZE_DISABLE_64BIT)) {
+	    	fprintf(stderr,
+	    	_("Cannot change 64-bits mode and inode count simultaneously\n"));
+		goto success_exit;
+	}
 	if ((flags & RESIZE_ENABLE_64BIT) &&
 	    ext2fs_has_feature_64bit(fs->super)) {
 		fprintf(stderr, _("The filesystem is already 64-bit.\n"));
