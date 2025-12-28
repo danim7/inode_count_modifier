@@ -58,7 +58,7 @@ $path_to_bin -f -i 1835008 $image_file > ${script_name}_output_test_2 || { echo 
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
 
 #shall create 6272 inodes
-$path_to_bin -c $new_count $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
+$path_to_bin -i $new_count $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
 
 $path_to_bin -f -i 917504 $image_file > ${script_name}_output_test_4 || { echo 'modification 4 failed' ; exit 1; }
@@ -124,7 +124,7 @@ $path_to_bin -f -i 5505024 $image_file > ${script_name}_output_test_9 || { echo 
 e2fsck -vf $image_file  || { echo 'test 9 failed' ; exit 1; }
 
 #shall create 32256 inodes
-$path_to_bin  -c $new_count $image_file > ${script_name}_output_test_10 || { echo 'modification 10 failed' ; exit 1; }
+$path_to_bin  -i $new_count $image_file > ${script_name}_output_test_10 || { echo 'modification 10 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 10 failed' ; exit 1; }
 
 $path_to_bin -f -i 2752512 $image_file > ${script_name}_output_test_11 || { echo 'modification 11 failed' ; exit 1; }

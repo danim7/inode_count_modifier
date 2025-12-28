@@ -79,7 +79,7 @@ sudo umount  ${mount_dir}
 e2fsck -vf $image_file 
 
 echo "launch test 3"
-$path_to_bin -f -c 576 $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
+$path_to_bin -f -i 576 $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 echo "end test 3"
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
 

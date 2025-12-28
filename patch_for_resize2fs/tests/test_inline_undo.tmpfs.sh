@@ -174,7 +174,7 @@ else
  exit -2
 fi
 #shall create 94464 inodes
-$path_to_bin -c $new_count $image_file > ${script_name}_output_test_6 || { echo 'modification 6 failed' ; exit 1; }
+$path_to_bin -i $new_count $image_file > ${script_name}_output_test_6 || { echo 'modification 6 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 6 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 

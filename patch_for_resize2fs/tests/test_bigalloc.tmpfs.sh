@@ -97,7 +97,7 @@ e2fsck -f $image_file
 
 
 #shall create 47904 inodes
-$path_to_bin -f -c $new_count $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
+$path_to_bin -f -i $new_count $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 
@@ -115,16 +115,16 @@ e2fsck -f $image_file
 count_param=$(( new_count + new_count / 4 ))
 echo $count_param
 #shall create 59904 inodes
-$path_to_bin -f -c $count_param $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
+$path_to_bin -f -i $count_param $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
 
 #shall create 47904 inodes
-$path_to_bin -f -c $new_count $image_file > ${script_name}_output_test_4 || { echo 'modification 4 failed' ; exit 1; }
+$path_to_bin -f -i $new_count $image_file > ${script_name}_output_test_4 || { echo 'modification 4 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 4 failed' ; exit 1; }
 
 count_param=$(( new_count + new_count / 3 ))
 #shall create 64000 inodes
-$path_to_bin -f -c $count_param $image_file > ${script_name}_output_test_5 || { echo 'modification 5 failed' ; exit 1; }
+$path_to_bin -f -i $count_param $image_file > ${script_name}_output_test_5 || { echo 'modification 5 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 5 failed' ; exit 1; }
 
 sudo mount -o loop $image_file ${mount_dir}
@@ -182,7 +182,7 @@ sudo umount ${mount_dir}
 
 e2fsck -f $image_file
 #shall create 23776 inodes
-$path_to_bin -f -c $new_count $image_file > ${script_name}_output_test_6 || { echo 'modification 6 failed' ; exit 1; }
+$path_to_bin -f -i $new_count $image_file > ${script_name}_output_test_6 || { echo 'modification 6 failed' ; exit 1; }
 e2fsck -vf $image_file || { echo 'test 6 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 
@@ -223,7 +223,7 @@ sudo umount ${mount_dir}
 e2fsck -f $image_file
 
 #shall create 23776 inodes
-$path_to_bin -f -c $new_count $image_file > ${script_name}_output_test_7 || { echo 'modification 7 failed' ; exit 1; }
+$path_to_bin -f -i $new_count $image_file > ${script_name}_output_test_7 || { echo 'modification 7 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 7 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 
@@ -241,18 +241,18 @@ e2fsck -f $image_file
 count_param=$(( new_count + new_count / 4 ))
 echo $count_param
 #shall create 30208 inodes
-$path_to_bin -f -c $count_param $image_file > ${script_name}_output_test_8 || { echo 'modification 8 failed' ; exit 1; }
+$path_to_bin -f -i $count_param $image_file > ${script_name}_output_test_8 || { echo 'modification 8 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 8 failed' ; exit 1; }
 
 echo "launch test 9"
 #shall create 23776 inodes
-$path_to_bin -f -c $new_count $image_file > ${script_name}_output_test_9 || { echo 'modification 9 failed' ; exit 1; }
+$path_to_bin -f -i $new_count $image_file > ${script_name}_output_test_9 || { echo 'modification 9 failed' ; exit 1; }
 echo "end test 9"
 e2fsck -vf $image_file  || { echo 'test 9 failed' ; exit 1; }
 
 count_param=$(( new_count + new_count / 3 ))
 #shall create 31744 inodes
-$path_to_bin -f -c $count_param $image_file > ${script_name}_output_test_10 || { echo 'modification 10 failed' ; exit 1; }
+$path_to_bin -f -i $count_param $image_file > ${script_name}_output_test_10 || { echo 'modification 10 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 10 failed' ; exit 1; }
 
 sudo mount -o loop $image_file ${mount_dir}

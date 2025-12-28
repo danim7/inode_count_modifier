@@ -94,7 +94,7 @@ sudo umount ${mount_dir}
 e2fsck -f $image_file
 
 #shall change to 66240 inodes
-$path_to_bin -c $new_count $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
+$path_to_bin -i $new_count $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
 sudo mount -o loop $image_file ${mount_dir}
 

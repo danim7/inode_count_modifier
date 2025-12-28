@@ -30,7 +30,7 @@ $path_to_bin -f -i 244224 $image_file > ${script_name}_output_test_1 || { echo '
 e2fsck -vf $image_file  || { echo 'test 1 failed' ; exit 1; }
 $path_to_bin -i 41600 $image_file > ${script_name}_output_test_2 || { echo 'modification 2 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
-$path_to_bin -c 12 $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
+$path_to_bin -i 12 $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
 $path_to_bin -f -i 244224 $image_file > ${script_name}_output_test_4 || { echo 'modification 4 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 4 failed' ; exit 1; }

@@ -50,7 +50,7 @@ sudo umount ${mount_dir}
 
 e2fsck -vf $image_file || { echo 'pre-test 1 failed' ; exit 1; }
 #shall create 23520 inodes
-$path_to_bin -c $new_count $image_file > ${script_name}_output_test_1 || { echo 'modification 1 failed' ; exit 1; }
+$path_to_bin -i $new_count $image_file > ${script_name}_output_test_1 || { echo 'modification 1 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 1 failed' ; exit 1; }
 
 
@@ -105,7 +105,7 @@ sudo umount ${mount_dir}
 
 e2fsck -vf $image_file  || { echo 'pre-test 3 failed' ; exit 1; }
 #shall create 129312 inodes
-$path_to_bin -c $new_count $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
+$path_to_bin -i $new_count $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
 
 $path_to_bin -i 172224 $image_file > ${script_name}_output_test_4 || { echo 'modification 4 failed' ; exit 1; }

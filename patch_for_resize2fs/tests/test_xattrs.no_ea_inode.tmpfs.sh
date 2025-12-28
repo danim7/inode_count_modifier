@@ -8,7 +8,10 @@ if [ "$#" -ne 1 ]; then
 fi
 
 script_name=$(basename "$0")
-path_to_bin=$1
+path_to_bin="$1"
+echo $path_to_bin
+stat $path_to_bin
+$path_to_bin
 image_file=/tmp/${script_name}_tmpfs/test.256M.ext4.img
 mount_dir=/tmp/${script_name}_mounted
 

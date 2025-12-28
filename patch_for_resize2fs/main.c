@@ -986,8 +986,12 @@ int main (int argc, char ** argv)
 			device_name);
 		goto errout;
 	}
-	printf(_("The filesystem on %s is now %llu (%dk) blocks long.\n\n"),
-	       device_name, (unsigned long long) new_size, blocksize / 1024);
+	if (flags & (RESIZE_INCREASE_INODE_COUNT | RESIZE_DECREASE_INODE_COUNT)) {
+		printf(_("The filesystem on %s now has %u inodes.\n\n"), device_name, new_inodes_per_group * fs->group_desc_count);
+	} else {
+		printf(_("The filesystem on %s is now %llu (%dk) blocks long.\n\n"),
+	      		 device_name, (unsigned long long) new_size, blocksize / 1024);
+	}
 
 	if ((st_buf.st_size > new_file_size) &&
 	    (fd > 0)) {

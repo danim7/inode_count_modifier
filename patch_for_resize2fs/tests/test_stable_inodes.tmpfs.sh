@@ -92,7 +92,7 @@ sudo umount ${mount_dir}
 e2fsck -f $image_file
 
 #shall try to create 5376 inodes
-$path_to_bin -c $used_inode_count $image_file > ${script_name}_output_test_3
+$path_to_bin -i $used_inode_count $image_file > ${script_name}_output_test_3
 if [ $? -ne 1 ]
 then
 	echo "shall have gotten a non zero exit code"
@@ -105,7 +105,7 @@ $path_to_bin -f -i 24576 $image_file > ${script_name}_output_test_4 || { echo 'm
 e2fsck -vf $image_file  || { echo 'test 4 failed' ; exit 1; }
 
 #shall create 11008 inodes
-$path_to_bin -c $total_inode_count $image_file > ${script_name}_output_test_5 || { echo 'modification 5 failed' ; exit 1; }
+$path_to_bin -i $total_inode_count $image_file > ${script_name}_output_test_5 || { echo 'modification 5 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 5 failed' ; exit 1; }
 
 

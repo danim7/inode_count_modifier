@@ -61,7 +61,7 @@ e2fsck -vf $image_file  || { echo 'test 2 failed' ; exit 1; }
 
 dumpe2fs $image_file
 #shall generate 28784 inodes
-$path_to_bin -c $new_count $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
+$path_to_bin -i $new_count $image_file > ${script_name}_output_test_3 || { echo 'modification 3 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 3 failed' ; exit 1; }
 
 
@@ -139,7 +139,7 @@ e2fsck -vf $image_file  || { echo 'test 9 failed' ; exit 1; }
 #debugfs -R "stat <13>" $image_file
 dumpe2fs $image_file
 #shall generate 28080 inodes
-$path_to_bin  -c $new_count $image_file > ${script_name}_output_test_10 || { echo 'modification 10 failed' ; exit 1; }
+$path_to_bin -i $new_count $image_file > ${script_name}_output_test_10 || { echo 'modification 10 failed' ; exit 1; }
 e2fsck -vf $image_file  || { echo 'test 10 failed' ; exit 1; }
 
 $path_to_bin -f -i 262600 $image_file > ${script_name}_output_test_11 || { echo 'modification 11 failed' ; exit 1; }
