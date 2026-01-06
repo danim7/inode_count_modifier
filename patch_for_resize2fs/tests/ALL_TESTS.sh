@@ -15,6 +15,7 @@ time ./test_xattrs.no_ea_inode.tmpfs.sh "$1" || { echo 'test_xattrs.no_ea_inode.
 time ./test_low_free_space.tmpfs.sh "$1" || { echo 'test_low_free_space.tmpfs failed' ; exit 1; }
 time ./test_no_flex_bg.32bits.inode_128bits.badblocks.tiny_last_group.tmpfs.sh "$1" || { echo 'test_no_flex_bg.32bits.inode_128bits.badblocks.tiny_last_group.tmpfs failed' ; exit 1; }
 time ./test_blocksize_not_4096.tmpfs.sh "$1" || { echo 'test_blocksize_not_4096.tmpfs failed' ; exit 1; }
+time ./test_cmd_parameter.tmpfs.sh "$1" || { echo 'test_cmd_parameter.tmpfs.sh failed' ; exit 1; }
 time ./test_stable_inodes.tmpfs.sh "$1" || { echo 'test_stable_inodes.tmpfs failed' ; exit 1; }
 time ./test_bigalloc.tmpfs.sh "$1" || { echo 'test_bigalloc.tmpfs failed' ; exit 1; }
 time ./test_many_folders.tmpfs.sh "$1" || { echo 'test_many_folders.tmpfs.sh failed' ; exit 1; }
