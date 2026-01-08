@@ -3777,7 +3777,8 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs)
 		ext2fs_bg_free_inodes_count_set(rfs->new_fs, group,
 						rfs->new_fs->
 						super->s_inodes_per_group);
-		ext2fs_bg_itable_unused_set(rfs->new_fs, group,
+		if (ext2fs_has_group_desc_csum(rfs->new_fs))
+			ext2fs_bg_itable_unused_set(rfs->new_fs, group,
 					    rfs->new_fs->
 					    super->s_inodes_per_group);
 	}
@@ -3859,7 +3860,8 @@ static errcode_t init_increase_inode_count(ext2_resize_t rfs)
 		ext2fs_bg_free_inodes_count_set(rfs->new_fs, group,
 						rfs->new_fs->
 						super->s_inodes_per_group);
-		ext2fs_bg_itable_unused_set(rfs->new_fs, group,
+		if (ext2fs_has_group_desc_csum(rfs->new_fs))
+			ext2fs_bg_itable_unused_set(rfs->new_fs, group,
 					    rfs->new_fs->
 					    super->s_inodes_per_group);
 	}

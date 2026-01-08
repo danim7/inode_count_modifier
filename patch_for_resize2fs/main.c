@@ -407,7 +407,7 @@ static int calculate_new_inodes_per_group(ext2_filsys fs,
 	current_inode_blocks_space = ((blk64_t) fs->inode_blocks_per_group)
 				* fs->group_desc_count * (blocksize / 1024);
 	free_space = ext2fs_free_blocks_count(fs->super) * (blocksize / 1024);
-printf("sssssssssssssss flaags %d\n", flags);
+
 #ifdef RESIZE2FS_DEBUG
 	if (flags & RESIZE_DEBUG_INODECOUNT) {
 		printf("Current inode blocks per group: %u\n",
