@@ -6,10 +6,10 @@ fi
 
 LOG=$test_name.log
 OUT_TMP=file_outside
+EXP=$test_dir/expect
 fail=0
 
 $MKE2FS -N 36864 $TMPFILE 144m >> $LOG 2>&1
-cp $TMPFILE /tmp/copia
 
 
 echo AAAAAAAA > $OUT_TMP  2>> $LOG
@@ -31,11 +31,11 @@ quit
 EOF
 echo " " >> $LOG
 
-$FSCK -fy $TMPFILE >> $LOG 2>&1 || fail=1
+$FSCK -fy -N test_filesys $TMPFILE >> $LOG 2>&1 || fail=1
 
-$RESIZE2FS -i 136 -d 126 -f $TMPFILE >> $LOG 2>&1 || fail=1
+$RESIZE2FS -i 136 -f $TMPFILE >> $LOG 2>&1 || fail=1
 
-$FSCK -fy $TMPFILE >> $LOG 2>&1 || fail=1
+$FSCK -fy -N test_filesys $TMPFILE >> $LOG 2>&1 || fail=1
 
 
 rm -f $OUT_TMP
@@ -50,7 +50,7 @@ echo $CRCSUM $OUT_TMP >> $LOG 2>&1
 CSUM_2=$($CRCSUM $OUT_TMP)
 echo Checksum is $CSUM_2 >> $LOG
 
-rm -f $OUT_TMP
+rm -f $OUT_TMP $TMPFILE
 
 
 if test "$CSUM_1" != "$CSUM_2"
@@ -59,12 +59,17 @@ then
 	echo crc check failed >> $LOG
 fi
 
+sed -f $cmd_dir/filter.sed  < $LOG > $LOG.new
+mv $LOG.new $LOG
+
+cmp -s $LOG $EXP || fail=1
+
 if [ "$fail" = 0 ]; then
 	echo "$test_name: $test_description: ok"
 	touch $test_name.ok
 else
 	echo "$test_name: $test_description: failed"
-	touch $test_name.failed
+	diff $DIFF_OPTS $LOG $EXP >> $test_name.failed
 fi
 
 unset CSUM_1 CSUM_2 LOG OUT_TMP fail

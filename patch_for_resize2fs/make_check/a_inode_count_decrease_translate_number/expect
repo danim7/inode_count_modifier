@@ -1,0 +1,41 @@
+Creating filesystem with 147456 1k blocks and 36864 inodes
+Superblock backups stored on blocks: 
+	8193, 24577, 40961, 57345, 73729
+
+Allocating group tables:      done                            
+Writing inode tables:      done                            
+Writing superblocks and filesystem accounting information:      done
+
+Checksum is 1569341821
+debugfs:  write file_outside file
+Allocated inode: 12
+debugfs:  copy_inode file <36864>
+debugfs:  seti <36864>
+debugfs:  ln <36864> file2
+debugfs:  sif <12> block[0] 0
+debugfs:  rm file
+
+debugfs:  set_bg 17 free_inodes_count 2047
+debugfs:  ssv free_inodes_count 36852
+debugfs:  quit
+ 
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+test_filesys: 12/36864 files (0.0% non-contiguous), 10816/147456 blocks
+Changing inode count on the filesystem.
+The filesystem on test.img now has 144 inodes.
+
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+test_filesys: 12/144 files (0.0% non-contiguous), 1636/147456 blocks
+debugfs:  dump /file2 file_outside
+debugfs:  quit
+ 
+../tests/progs/crcsum file_outside
+Checksum is 1569341821

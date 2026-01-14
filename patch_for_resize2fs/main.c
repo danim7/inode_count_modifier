@@ -248,6 +248,10 @@ err:
 	return retval;
 }
 
+/*
+ * Check corner case: we want to increase inode table in
+ * a filesystem with no flex_bg and very small last group
+ */
 static int check_space_last_group(ext2_filsys fs,
 				  unsigned int inode_blocks_per_group)
 {
@@ -361,7 +365,6 @@ static ext2_ino_t parse_count_param(char *p, ext2_ino_t current_count)
 	}
 
 	n = strtoul(p, NULL, 0);
-	printf("val: %lu\n", n);
 
 	if (n > MAX_INODE || n == 0) {
 		fprintf(stderr, "invalid param %s\n", type == '-' ? --p : p);
@@ -1135,6 +1138,9 @@ int main (int argc, char ** argv)
 			printf(_("Converting the filesystem to 64-bit.\n"));
 		else if (flags & RESIZE_DISABLE_64BIT)
 			printf(_("Converting the filesystem to 32-bit.\n"));
+		else if (flags & (RESIZE_INCREASE_INODE_COUNT
+				| RESIZE_DECREASE_INODE_COUNT))
+			printf(_("Changing inode count on the filesystem.\n"));
 		else
 			printf(_("Resizing the filesystem on "
 				 "%s to %llu (%dk) blocks.\n"),
