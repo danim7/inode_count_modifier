@@ -106,7 +106,7 @@ struct resource_track {
 typedef enum {
 	itable_status_not_allocated = 0,	/*must be zero for calloc() */
 	itable_status_allocated = 1,
-	itable_status_filled = 2
+	itable_status_populated = 2
 } itable_status;
 
 /*
