@@ -367,8 +367,6 @@ static errcode_t block_mover(ext2_resize_t rfs, itable_status *new_itable_status
 			if (retval)
 				goto errout;
 
-			ext2fs_block_alloc_stats_range(rfs->new_fs, old_blk, c, -1);
-			ext2fs_block_alloc_stats_range(rfs->old_fs, old_blk, c, -1);
 			size -= c;
 			new_blk += c;
 			old_blk += c;
@@ -479,6 +477,8 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs, itable_status *new_itable
 	char *block_buf = 0;
 	int inode_size;
 	ext2_filsys fs;
+	blk64_t			old_blk, new_blk;
+	__u64			size;
 
 	set_com_err_hook(quiet_com_err_proc);
 
@@ -541,6 +541,25 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs, itable_status *new_itable
 				retval = pb.error;
 				goto errout;
 			}
+		}
+	}
+	
+	if (rfs->bmap) {
+		retval = ext2fs_iterate_extent(rfs->bmap, 0, 0, 0);
+		if (retval) goto errout;
+
+		while (1) {
+			retval = ext2fs_iterate_extent(rfs->bmap, &old_blk,
+							&new_blk, &size);
+			if (retval) goto errout;
+			if (!size)
+				break;
+			old_blk = C2B(old_blk);
+			size = C2B(size);
+			ext2fs_block_alloc_stats_range(rfs->new_fs, old_blk,
+								size, -1);
+			ext2fs_block_alloc_stats_range(rfs->old_fs, old_blk,
+								size, -1);
 		}
 	}
 
@@ -712,7 +731,7 @@ static errcode_t make_room_for_new_itables(ext2_resize_t rfs, itable_status *new
 	int flexbg_size = 0, retried_from_beginning = 0;
 	dgrp_t g;
 	blk64_t blk, blk2, first_blk, last_blk;
-	blk64_t pledged_blocks = 50;	/* start at 50 as a safe margin for extent trees rebalancing.. TODO: what would be a good start number */
+	blk64_t pledged_blocks = 0;
 	errcode_t retval;
 	ext2_filsys fs = rfs->old_fs;
 	ext2fs_block_bitmap meta_bmap;
