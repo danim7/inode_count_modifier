@@ -651,10 +651,8 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 {
 	errcode_t retval;
 	dgrp_t group;
-
-	rfs->new_fs->super->s_inodes_per_group = new_inodes_per_group;
-	rfs->new_fs->inode_blocks_per_group = ext2fs_div_ceil(rfs->new_fs->super->s_inodes_per_group * rfs->new_fs->super->s_inode_size, rfs->new_fs->blocksize);
-	rfs->new_fs->super->s_inodes_count = rfs->new_fs->group_desc_count * rfs->new_fs->super->s_inodes_per_group;
+	
+	update_inode_info_in_fs(rfs, new_inodes_per_group);
 
 	display_info(rfs);
 
@@ -669,14 +667,6 @@ static errcode_t inode_relocation_to_smaller_tables(ext2_resize_t rfs, unsigned 
 		goto errout;
 
 	io_channel_flush(rfs->old_fs->io);
-
-	for (group = 0; group < rfs->new_fs->group_desc_count; group++) {
-		ext2fs_bg_used_dirs_count_set(rfs->new_fs, group, 0);
-		ext2fs_bg_free_inodes_count_set(rfs->new_fs, group, rfs->new_fs->super->s_inodes_per_group);
-		if (ext2fs_has_group_desc_csum(rfs->new_fs))
-			ext2fs_bg_itable_unused_set(rfs->new_fs, group, rfs->new_fs->super->s_inodes_per_group);
-	}
-	rfs->new_fs->super->s_free_inodes_count = rfs->new_fs->super->s_inodes_count;
 
 	printf("calling migrate_inodes_backwards_loop()\n");
 	retval = migrate_inodes_backwards_loop(rfs);

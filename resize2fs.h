@@ -97,6 +97,13 @@ struct resource_track {
 	unsigned long long bytes_written;
 };
 
+typedef enum {
+	itable_status_not_allocated = 0,	/*must be zero for calloc() */
+	itable_status_allocated = 1,
+	itable_status_populated = 2
+} itable_status;
+
+
 /*
  * The core state structure for the ext2 resizer
  */
@@ -112,6 +119,8 @@ struct ext2_resize_struct {
 	blk64_t		needed_blocks;
 	int		flags;
 	char		*itable_buf;
+	
+	itable_status   *new_itable_status;
 
 	/*
 	 * For the block allocator
@@ -207,6 +216,7 @@ struct process_block_struct {
 errcode_t mark_table_blocks(ext2_filsys fs, ext2fs_block_bitmap bmap);
 errcode_t tweak_values_for_bigalloc(ext2_resize_t rfs, blk64_t *first_block, unsigned int *num_blocks);
 void display_info(ext2_resize_t rfs);
+void update_inode_info_in_fs(ext2_resize_t rfs, unsigned int new_inodes_per_group);
 
 
 /* Some bigalloc helper macros which are more succinct... */

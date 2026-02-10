@@ -128,3 +128,27 @@ void display_info(ext2_resize_t rfs)
 	printf("EXT2_DESC_PER_BLOCK(fs->super): %u\n", EXT2_DESC_PER_BLOCK(rfs->new_fs->super));
 
 }
+
+void update_inode_info_in_fs(ext2_resize_t rfs, unsigned int new_inodes_per_group) {
+	dgrp_t g;
+	ext2_filsys fs = rfs->new_fs;
+
+	fs->super->s_inodes_per_group = new_inodes_per_group;
+	fs->inode_blocks_per_group =
+	    ext2fs_div_ceil(fs->super->s_inodes_per_group *
+			    fs->super->s_inode_size,
+			    fs->blocksize);
+	fs->super->s_inodes_count =
+	    fs->group_desc_count * fs->super->s_inodes_per_group;
+	fs->super->s_free_inodes_count = fs->super->s_inodes_count;
+
+	for (g = 0; g < fs->group_desc_count; g++) {
+		ext2fs_bg_used_dirs_count_set(fs, g, 0);
+		ext2fs_bg_free_inodes_count_set(fs, g,
+				    fs->super->s_inodes_per_group);
+		if (ext2fs_has_group_desc_csum(fs))
+			ext2fs_bg_itable_unused_set(fs, g,
+				    fs->super->s_inodes_per_group);
+	}
+
+}
