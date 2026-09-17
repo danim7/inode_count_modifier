@@ -640,7 +640,7 @@ static errcode_t migrate_inodes_forward_loop(ext2_resize_t rfs, unsigned int *ev
 	struct ext2_inode *inode = NULL;
 	int inode_size = 0;
 	dgrp_t new_group = 0, old_group = 0;
-	errcode_t retval;
+	errcode_t retval = 0;
 
 	inode_size = EXT2_INODE_SIZE(rfs->new_fs->super);
 	inode = malloc(inode_size);
